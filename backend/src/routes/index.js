@@ -5,6 +5,7 @@ router.use('/auth', require('./auth'));
 router.use('/groups', require('./groups'));
 router.use('/wallet', require('./wallet'));
 router.use('/savings', require('./savings'));
+router.use('/gas', require('./gas'));
 
 router.get('/', (req, res) => {
   res.json({
@@ -52,6 +53,11 @@ router.get('/', (req, res) => {
         'POST /api/savings/:savingsId/deposit',
         'POST /api/savings/:savingsId/withdraw',
         'GET /api/savings/:savingsId/transactions'
+      ],
+      gas: [
+        'GET /api/gas/status - Check if gasless transactions are enabled',
+        'GET /api/gas/backend-wallet - View backend wallet balance (admin)',
+        'GET /api/gas/estimates - Get gas cost estimates'
       ],
       health: [
         'GET /api/health'

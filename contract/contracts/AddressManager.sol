@@ -79,14 +79,13 @@ contract AddressManager {
     }
 
     /**
-     * @dev Create wallets for a user using EOA address
+     * @dev Create wallets for a user using EOA address (Gasless - called by backend)
      * @param userIdentifier User's EOA address
      * @return mainWallet Address of created main wallet
      * @return savingsWallet Address of created savings wallet
      */
     function createUserWallets(address userIdentifier)
         external
-        onlyOwner
         returns (address mainWallet, address savingsWallet)
     {
         require(userIdentifier != address(0), "Invalid user identifier");
@@ -120,7 +119,7 @@ contract AddressManager {
     }
 
     /**
-     * @dev Create wallets for email user using email hash
+     * @dev Create wallets for email user using email hash (Gasless - called by backend)
      * @param emailHash Hash of user's email
      * @param userIdentifier User identifier for ownership
      * @return mainWallet Address of created main wallet
@@ -128,7 +127,6 @@ contract AddressManager {
      */
     function createEmailUserWallets(bytes32 emailHash, address userIdentifier)
         external
-        onlyOwner
         returns (address mainWallet, address savingsWallet)
     {
         require(emailHash != bytes32(0), "Invalid email hash");
@@ -308,7 +306,7 @@ contract AddressManager {
     }
 
     /**
-     * @dev Create a group pool contract
+     * @dev Create a group pool contract (Gasless - backend pays gas)
      * @param groupIdentifier Unique identifier for the group
      * @param groupOwner Owner of the group
      * @param groupName Name of the group
@@ -324,7 +322,7 @@ contract AddressManager {
         uint256 paymentWindowDuration,
         uint256 minContribution,
         uint256 maxMembers
-    ) external onlyOwner returns (address poolAddress) {
+    ) external returns (address poolAddress) {
         require(bytes(groupIdentifier).length > 0, "Invalid group identifier");
         require(groupOwner != address(0), "Invalid group owner");
         require(groupToPool[groupIdentifier] == address(0), "Group pool already exists");

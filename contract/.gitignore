@@ -1,5 +1,7 @@
 node_modules
 .env
+.env.local
+.env.*.local
 
 # Hardhat files
 /cache
@@ -15,3 +17,21 @@ node_modules
 
 # Hardhat Ignition default folder for deployments against a local node
 ignition/deployments/chain-31337
+
+# Deployment records (keep local only)
+/deployments
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

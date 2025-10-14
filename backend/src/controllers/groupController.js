@@ -1,6 +1,7 @@
 const Group = require('../models/Group');
 const User = require('../models/User');
 const contractService = require('../services/contractService');
+const gaslessService = require('../services/gaslessService');
 const { ethers } = require('ethers');
 const { v4: uuidv4 } = require('uuid');
 
@@ -25,24 +26,48 @@ const groupController = {
         });
       }
 
-      const groupIdentifier = `group_${userId}_${Date.now()}`;
+      // Use user's main wallet address + timestamp as unique group identifier
+      const groupIdentifier = `${user.address}_${Date.now()}`;
+      console.log(`Creating group with identifier: ${groupIdentifier}`);
+      console.log(`Group owner address: ${user.address}`);
+
       const windowDuration = paymentWindowDuration || 86400; // Default 1 day
       const minContribution = poolSettings.minContribution || 0;
       const maxMembers = poolSettings.maxMembers || 100;
 
       let poolAddress = null;
 
+      // Create group pool GASLESS - Backend pays all gas fees
       try {
-        const poolData = await contractService.createGroupPool(
-          groupIdentifier,
-          user.address, // Use address instead of walletAddress
-          name.trim(),
-          windowDuration,
-          minContribution,
-          maxMembers
-        );
-        if (poolData) {
-          poolAddress = poolData.poolAddress;
+        if (gaslessService.isReady()) {
+          console.log('✅ Creating group pool GASLESS - Backend pays all gas fees');
+          const poolData = await gaslessService.createGroupPoolGasless(
+            groupIdentifier,
+            user.address,
+            name.trim(),
+            {
+              paymentWindowDuration: windowDuration,
+              minContribution: minContribution,
+              maxMembers: maxMembers
+            }
+          );
+          if (poolData) {
+            poolAddress = poolData.poolAddress;
+            console.log(`✅ Group pool created at ${poolAddress} - Gas paid by backend`);
+          }
+        } else {
+          console.warn('⚠️ Gasless service not ready, using fallback');
+          const poolData = await contractService.createGroupPool(
+            groupIdentifier,
+            user.address,
+            name.trim(),
+            windowDuration,
+            minContribution,
+            maxMembers
+          );
+          if (poolData) {
+            poolAddress = poolData.poolAddress;
+          }
         }
       } catch (contractError) {
         console.warn('Contract pool creation failed:', contractError.message);

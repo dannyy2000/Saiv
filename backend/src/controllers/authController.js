@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const { ethers } = require('ethers');
 const User = require('../models/User');
 const contractService = require('../services/contractService');
+const gaslessService = require('../services/gaslessService');
 
 const authController = {
   async registerWithEmail(req, res) {
@@ -54,9 +55,19 @@ const authController = {
       // Create a temporary user identifier for email users
       const tempUserIdentifier = ethers.Wallet.createRandom().address;
 
-      // Create smart contract wallets for the user
-      const emailHash = ethers.keccak256(ethers.toUtf8Bytes(email.toLowerCase()));
-      const wallets = await contractService.createEmailUserWallets(emailHash, tempUserIdentifier);
+      // Create smart contract wallets for the user (GASLESS - Backend pays gas)
+      let wallets;
+      if (gaslessService.isReady()) {
+        console.log('✅ Creating wallets GASLESS - Backend pays all gas fees');
+        wallets = await gaslessService.createEmailUserWalletsGasless(
+          email.toLowerCase(),
+          tempUserIdentifier
+        );
+      } else {
+        console.warn('⚠️ Gasless service not ready, using fallback');
+        const emailHash = ethers.keccak256(ethers.toUtf8Bytes(email.toLowerCase()));
+        wallets = await contractService.createEmailUserWallets(emailHash, tempUserIdentifier);
+      }
 
       user = new User({
         email: email.toLowerCase(),
@@ -165,8 +176,15 @@ const authController = {
         });
       }
 
-      // Create smart contract wallets for the wallet user
-      const wallets = await contractService.createUserWallets(eoaAddress);
+      // Create smart contract wallets for the wallet user (GASLESS - Backend pays gas)
+      let wallets;
+      if (gaslessService.isReady()) {
+        console.log('✅ Creating wallets GASLESS - Backend pays all gas fees');
+        wallets = await gaslessService.createUserWalletsGasless(eoaAddress);
+      } else {
+        console.warn('⚠️ Gasless service not ready, using fallback');
+        wallets = await contractService.createUserWallets(eoaAddress);
+      }
 
       user = new User({
         eoaAddress: eoaAddress,

@@ -41,9 +41,29 @@ contract GroupPool is ReentrancyGuard, Ownable {
     event GroupPoolInitialized(address indexed owner, address indexed manager);
     event SuppliedToAave(address indexed asset, uint256 amount, address indexed aToken);
     event WithdrawnFromAave(address indexed asset, uint256 amount);
+    event AutomaticWithdrawalProcessed(
+        uint256 totalAmount,
+        uint256 principal,
+        uint256 interest,
+        uint256 systemFee,
+        uint256 timestamp
+    );
+    event MemberPayout(
+        address indexed member,
+        uint256 amount,
+        uint256 contribution,
+        uint256 timestamp
+    );
+    event GroupCompleted(uint256 timestamp);
+
+    // Enums
+    enum GroupStatus { Active, Completed, Cancelled }
 
     // State variables
     address public manager; // AddressManager contract
+    address public systemTreasury; // Treasury address for system fees
+    uint256 public lockPeriod; // Lock period end time
+    GroupStatus public groupStatus; // Current group status
 
     // Aave integration
     address public aavePool; // Aave V3 Pool address
@@ -83,6 +103,16 @@ contract GroupPool is ReentrancyGuard, Ownable {
         _;
     }
 
+    modifier onlyActiveGroup() {
+        require(groupStatus == GroupStatus.Active, "Group not active");
+        _;
+    }
+
+    modifier lockPeriodExpired() {
+        require(block.timestamp >= lockPeriod, "Lock period not expired");
+        _;
+    }
+
     constructor() Ownable(msg.sender) {
         // Temporary owner, will be transferred in initialize()
     }
@@ -95,6 +125,8 @@ contract GroupPool is ReentrancyGuard, Ownable {
      * @param _paymentWindowDuration Duration of each payment window in seconds
      * @param _minContribution Minimum contribution amount
      * @param _maxMembers Maximum number of members
+     * @param _lockPeriodDuration Lock period duration in seconds
+     * @param _systemTreasury Treasury address for system fees
      */
     function initialize(
         address _owner,
@@ -102,21 +134,28 @@ contract GroupPool is ReentrancyGuard, Ownable {
         string memory _groupName,
         uint256 _paymentWindowDuration,
         uint256 _minContribution,
-        uint256 _maxMembers
+        uint256 _maxMembers,
+        uint256 _lockPeriodDuration,
+        address _systemTreasury
     ) external {
         require(!_initialized, "Already initialized");
         require(_owner != address(0), "Invalid owner");
         require(_manager != address(0), "Invalid manager");
+        require(_systemTreasury != address(0), "Invalid treasury address");
         require(_paymentWindowDuration > 0, "Invalid payment window duration");
+        require(_lockPeriodDuration > 0, "Invalid lock period duration");
 
         _initialized = true;
 
         _transferOwnership(_owner);
         manager = _manager;
+        systemTreasury = _systemTreasury;
         groupName = _groupName;
         paymentWindowDuration = _paymentWindowDuration;
         minContribution = _minContribution;
         maxMembers = _maxMembers;
+        lockPeriod = block.timestamp + _lockPeriodDuration;
+        groupStatus = GroupStatus.Active;
 
         // Create first payment window
         _createPaymentWindow();
@@ -544,5 +583,196 @@ contract GroupPool is ReentrancyGuard, Ownable {
             return aTokenBalance - supplied;
         }
         return 0;
+    }
+
+    // ============================================
+    // AUTOMATIC WITHDRAWAL FUNCTIONALITY
+    // ============================================
+
+    /**
+     * @dev Process automatic withdrawal when lock period expires
+     * Withdraws all funds from Aave, calculates interest, deducts 3% system fee,
+     * and distributes remaining funds proportionally to members
+     * @param asset Asset to withdraw (address(0) for ETH, token address for ERC20)
+     */
+    function processAutomaticWithdraw(address asset)
+        external
+        lockPeriodExpired
+        onlyActiveGroup
+        nonReentrant
+    {
+        require(aavePool != address(0), "Aave pool not set");
+        require(suppliedToAave[asset] > 0, "No funds supplied to Aave for this asset");
+
+        // Get aToken address
+        address aToken = assetToAToken[asset];
+        require(aToken != address(0), "aToken not set for this asset");
+
+        // Get total aToken balance (principal + interest)
+        uint256 totalATokenBalance = IAToken(aToken).balanceOf(address(this));
+        require(totalATokenBalance > 0, "No aToken balance");
+
+        // Withdraw all funds from Aave
+        uint256 withdrawnAmount = IAavePool(aavePool).withdraw(
+            asset,
+            totalATokenBalance, // Withdraw all aTokens
+            address(this)
+        );
+
+        // Calculate principal and interest
+        uint256 principal = suppliedToAave[asset];
+        uint256 interest = withdrawnAmount > principal ? withdrawnAmount - principal : 0;
+
+        // Calculate system fee (3% of interest only)
+        uint256 systemFee = (interest * 3) / 100;
+
+        // Calculate distributable amount (principal + interest - system fee)
+        uint256 distributableAmount = withdrawnAmount - systemFee;
+
+        // Transfer system fee to treasury
+        if (systemFee > 0) {
+            if (asset == address(0)) {
+                // ETH transfer
+                payable(systemTreasury).transfer(systemFee);
+            } else {
+                // Token transfer
+                require(IERC20(asset).transfer(systemTreasury, systemFee), "System fee transfer failed");
+            }
+        }
+
+        // Get total contributions for this asset from all members
+        uint256 totalContributions = _getTotalContributions(asset);
+        require(totalContributions > 0, "No contributions found");
+
+        // Distribute funds to members based on their contribution ratio
+        _distributeFundsToMembers(asset, distributableAmount, totalContributions);
+
+        // Mark group as completed
+        groupStatus = GroupStatus.Completed;
+
+        // Reset supplied amount
+        suppliedToAave[asset] = 0;
+
+        emit AutomaticWithdrawalProcessed(
+            withdrawnAmount,
+            principal,
+            interest,
+            systemFee,
+            block.timestamp
+        );
+
+        emit WithdrawnFromAave(asset, withdrawnAmount);
+        emit GroupCompleted(block.timestamp);
+    }
+
+    /**
+     * @dev Get total contributions for a specific asset across all members
+     * @param asset Asset address (address(0) for ETH)
+     * @return Total contribution amount
+     */
+    function _getTotalContributions(address asset) internal view returns (uint256) {
+        uint256 total = 0;
+
+        for (uint256 i = 0; i < groupMembers.length; i++) {
+            address member = groupMembers[i];
+            if (asset == address(0)) {
+                // ETH contributions
+                total += totalMemberContributions[member];
+            } else {
+                // Token contributions
+                total += totalMemberTokenContributions[member][asset];
+            }
+        }
+
+        return total;
+    }
+
+    /**
+     * @dev Distribute funds to members based on their contribution ratio
+     * @param asset Asset address
+     * @param distributableAmount Total amount to distribute
+     * @param totalContributions Total contributions from all members
+     */
+    function _distributeFundsToMembers(
+        address asset,
+        uint256 distributableAmount,
+        uint256 totalContributions
+    ) internal {
+        for (uint256 i = 0; i < groupMembers.length; i++) {
+            address member = groupMembers[i];
+            uint256 memberContribution;
+
+            if (asset == address(0)) {
+                // ETH contributions
+                memberContribution = totalMemberContributions[member];
+            } else {
+                // Token contributions
+                memberContribution = totalMemberTokenContributions[member][asset];
+            }
+
+            if (memberContribution > 0) {
+                // Calculate member's proportional share
+                uint256 memberShare = (memberContribution * distributableAmount) / totalContributions;
+
+                if (memberShare > 0) {
+                    // Transfer to member's main wallet
+                    if (asset == address(0)) {
+                        // ETH transfer
+                        payable(member).transfer(memberShare);
+                    } else {
+                        // Token transfer
+                        require(
+                            IERC20(asset).transfer(member, memberShare),
+                            "Member payout failed"
+                        );
+                    }
+
+                    emit MemberPayout(member, memberShare, memberContribution, block.timestamp);
+                }
+            }
+        }
+    }
+
+    /**
+     * @dev Check if group is eligible for automatic withdrawal
+     * @return eligible True if lock period has expired and group is active
+     * @return timeRemaining Seconds remaining until lock period expires (0 if expired)
+     */
+    function checkWithdrawalEligibility() external view returns (bool eligible, uint256 timeRemaining) {
+        if (groupStatus != GroupStatus.Active) {
+            return (false, 0);
+        }
+
+        if (block.timestamp >= lockPeriod) {
+            return (true, 0);
+        } else {
+            return (false, lockPeriod - block.timestamp);
+        }
+    }
+
+    /**
+     * @dev Get group financial summary
+     * @param asset Asset address
+     * @return principal Original principal amount
+     * @return currentYield Current yield earned
+     * @return totalMembers Number of group members
+     * @return totalContributions Total contributions from all members
+     * @return withdrawalEligible Whether group is eligible for withdrawal
+     * @return lockTimeRemaining Time remaining until lock expires
+     */
+    function getGroupSummary(address asset) external view returns (
+        uint256 principal,
+        uint256 currentYield,
+        uint256 totalMembers,
+        uint256 totalContributions,
+        bool withdrawalEligible,
+        uint256 lockTimeRemaining
+    ) {
+        principal = suppliedToAave[asset];
+        currentYield = this.getAaveYield(asset);
+        totalMembers = groupMembers.length;
+        totalContributions = _getTotalContributions(asset);
+
+        (withdrawalEligible, lockTimeRemaining) = this.checkWithdrawalEligibility();
     }
 }

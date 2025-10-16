@@ -3,6 +3,9 @@ require('dotenv').config();
 
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing';
+process.env.RPC_URL = 'http://localhost:8545';
+process.env.ADMIN_PRIVATE_KEY = '0x1234567890123456789012345678901234567890123456789012345678901234';
+process.env.ADDRESS_MANAGER_CONTRACT = '0x1111111111111111111111111111111111111111';
 
 const mongoURI =
   process.env.MONGODB_TEST_URI ||

@@ -42,6 +42,9 @@ contract AddressManager {
     // Owner of the contract
     address public owner;
 
+    // System treasury for collecting fees
+    address public systemTreasury;
+
     // Events
     event UserWalletsCreated(
         address indexed identifier,
@@ -70,6 +73,7 @@ contract AddressManager {
 
     constructor() {
         owner = msg.sender;
+        systemTreasury = msg.sender; // Initially set treasury to owner
 
         // Deploy the UserWallet implementation contract
         walletImplementation = address(new UserWallet());
@@ -339,7 +343,9 @@ contract AddressManager {
             groupName,
             paymentWindowDuration,
             minContribution,
-            maxMembers
+            maxMembers,
+            30 days, // Default lock period of 30 days
+            systemTreasury // System treasury for fees
         );
 
         // Store mappings
@@ -433,6 +439,15 @@ contract AddressManager {
     function transferOwnership(address newOwner) external onlyOwner {
         require(newOwner != address(0), "New owner cannot be zero address");
         owner = newOwner;
+    }
+
+    /**
+     * @dev Set system treasury address for fee collection
+     * @param newTreasury Address of the new system treasury
+     */
+    function setSystemTreasury(address newTreasury) external onlyOwner {
+        require(newTreasury != address(0), "Treasury cannot be zero address");
+        systemTreasury = newTreasury;
     }
 
     /**

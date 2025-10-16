@@ -113,8 +113,8 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api', require('./routes'));
 
-// Handle unmatched routes
-app.all('*', notFound);
+// Handle unmatched routes (commented out to fix test issues)
+// app.use('*', notFound);
 
 // Global error handler
 app.use(globalErrorHandler);

@@ -765,4 +765,143 @@ describe("UserWallet", function () {
       expect(balance).to.equal(largeAmount);
     });
   });
+
+  describe("Additional Coverage", function () {
+    it("Should test nonReentrant modifier coverage on sendEth", async function () {
+      // Add ETH to wallet
+      await owner.sendTransaction({
+        to: userWallet.target,
+        value: ethers.parseEther("2")
+      });
+
+      const sendAmount = ethers.parseEther("1");
+      const initialBalance = await ethers.provider.getBalance(user2.address);
+
+      await userWallet.sendEth(user2.address, sendAmount);
+
+      const finalBalance = await ethers.provider.getBalance(user2.address);
+      expect(finalBalance).to.equal(initialBalance + sendAmount);
+    });
+
+    it("Should test getAaveYield when aToken is not set", async function () {
+      // This should hit the early return path when aToken is address(0)
+      const yield = await userWallet.getAaveYield(token1.target);
+      expect(yield).to.equal(0);
+    });
+  });
+
+  describe("Scheduled Transactions", function () {
+    beforeEach(async function () {
+      await userWallet.addSupportedToken(token1.target);
+      await token1.mint(owner.address, ethers.parseEther("1000"));
+      await token1.approve(userWallet.target, ethers.parseEther("1000"));
+      await userWallet.depositToken(token1.target, ethers.parseEther("1000"));
+    });
+
+    it("Should schedule a transaction", async function () {
+      // Get current block timestamp and add buffer
+      const currentTime = await ethers.provider.getBlock('latest');
+      const futureTime = currentTime.timestamp + 3600; // 1 hour from now
+      const amount = ethers.parseEther("10");
+
+      await userWallet.scheduleTransaction(
+        user2.address,
+        token1.target,
+        amount,
+        futureTime,
+        0, // no interval
+        1  // execute once
+      );
+
+      const tx = await userWallet.getScheduledTransaction(0);
+      expect(tx.to).to.equal(user2.address);
+      expect(tx.asset).to.equal(token1.target);
+      expect(tx.amount).to.equal(amount);
+    });
+
+    it("Should cancel scheduled transaction", async function () {
+      // Get current block timestamp and add buffer
+      const currentTime = await ethers.provider.getBlock('latest');
+      const futureTime = currentTime.timestamp + 3600;
+      const amount = ethers.parseEther("10");
+
+      await userWallet.scheduleTransaction(
+        user2.address,
+        token1.target,
+        amount,
+        futureTime,
+        0,
+        1
+      );
+
+      await userWallet.cancelScheduledTransaction(0);
+
+      const tx = await userWallet.getScheduledTransaction(0);
+      expect(tx.cancelled).to.be.true;
+    });
+
+  });
+
+  describe("Recovery and Security", function () {
+    it("Should add recovery address", async function () {
+      await userWallet.addRecoveryAddress(user2.address);
+
+      const isRecovery = await userWallet.isRecoveryAddress(user2.address);
+      expect(isRecovery).to.be.true;
+
+      const recoveryAddresses = await userWallet.getRecoveryAddresses();
+      expect(recoveryAddresses).to.include(user2.address);
+    });
+
+
+    it("Should unfreeze wallet", async function () {
+      // Add recovery address and freeze
+      await userWallet.addRecoveryAddress(user2.address);
+      await userWallet.connect(user2).freezeWallet(true);
+
+      // Unfreeze
+      await userWallet.connect(user2).freezeWallet(false);
+
+      // Should be able to perform operations again
+      await owner.sendTransaction({
+        to: userWallet.target,
+        value: ethers.parseEther("1")
+      });
+
+      // This should not revert now
+      await userWallet.withdrawEth(user2.address, ethers.parseEther("0.5"));
+    });
+  });
+
+  describe("Advanced Functions Coverage", function () {
+    let mockAavePool, mockAToken;
+
+    beforeEach(async function () {
+      // Deploy mock contracts for testing
+      const MockAavePool = await ethers.getContractFactory("MockAavePool");
+      mockAavePool = await MockAavePool.deploy();
+      await mockAavePool.waitForDeployment();
+
+      const MockAToken = await ethers.getContractFactory("MockAToken");
+      mockAToken = await MockAToken.deploy();
+      await mockAToken.waitForDeployment();
+    });
+
+    it("Should test compound interest calculation", async function () {
+      const principal = ethers.parseEther("1000");
+      const rate = 500; // 5% APY
+      const compoundsPerYear = 365;
+      const timeInYears = ethers.parseEther("1"); // 1 year
+
+      const result = await userWallet.calculateCompoundInterest(
+        principal,
+        rate,
+        compoundsPerYear,
+        timeInYears
+      );
+
+      expect(result).to.be.gt(principal); // Should be greater than principal
+    });
+
+  });
 });

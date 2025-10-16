@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/IAave.sol";
 
 /**
  * @title GroupPool
@@ -38,9 +39,16 @@ contract GroupPool is ReentrancyGuard, Ownable {
     event PaymentWindowCompleted(uint256 indexed windowNumber, uint256 totalContributions);
     event FundsWithdrawn(address indexed to, uint256 amount, address indexed token);
     event GroupPoolInitialized(address indexed owner, address indexed manager);
+    event SuppliedToAave(address indexed asset, uint256 amount, address indexed aToken);
+    event WithdrawnFromAave(address indexed asset, uint256 amount);
 
     // State variables
     address public manager; // AddressManager contract
+
+    // Aave integration
+    address public aavePool; // Aave V3 Pool address
+    mapping(address => address) public assetToAToken; // Maps asset to its aToken
+    mapping(address => uint256) public suppliedToAave; // Track amount supplied to Aave per asset
     string public groupName;
     uint256 public paymentWindowDuration;
     uint256 public currentWindowNumber;
@@ -439,5 +447,102 @@ contract GroupPool is ReentrancyGuard, Ownable {
             // Create next payment window
             _createPaymentWindow();
         }
+    }
+
+    // ============================================
+    // AAVE GROUP SAVINGS INTEGRATION
+    // ============================================
+
+    /**
+     * @dev Set Aave pool address (only manager can set)
+     * @param _aavePool Aave V3 Pool contract address
+     */
+    function setAavePool(address _aavePool) external onlyOwnerOrManager {
+        require(_aavePool != address(0), "Invalid Aave pool address");
+        aavePool = _aavePool;
+    }
+
+    /**
+     * @dev Set aToken address for an asset
+     * @param asset Asset address
+     * @param aToken Corresponding aToken address
+     */
+    function setAToken(address asset, address aToken) external onlyOwnerOrManager {
+        require(aToken != address(0), "Invalid aToken address");
+        assetToAToken[asset] = aToken;
+    }
+
+    /**
+     * @dev Supply group funds to Aave when payment window completes
+     * @param asset Asset to supply (address(0) for ETH, token address for ERC20)
+     * @param amount Amount to supply
+     */
+    function supplyToAave(address asset, uint256 amount)
+        external
+        onlyOwnerOrManager
+        nonReentrant
+    {
+        require(aavePool != address(0), "Aave pool not set");
+        require(amount > 0, "Amount must be greater than 0");
+
+        // Check balance
+        uint256 availableBalance;
+        if (asset == address(0)) {
+            availableBalance = address(this).balance;
+        } else {
+            availableBalance = IERC20(asset).balanceOf(address(this));
+        }
+        require(availableBalance >= amount, "Insufficient balance");
+
+        // Approve Aave pool if it's a token
+        if (asset != address(0)) {
+            IERC20(asset).approve(aavePool, amount);
+        }
+
+        // Supply to Aave - this pool receives aTokens
+        IAavePool(aavePool).supply(
+            asset,
+            amount,
+            address(this), // This pool receives the aTokens
+            0 // referral code
+        );
+
+        // Track supplied amount
+        suppliedToAave[asset] += amount;
+
+        // Get aToken address
+        address aToken = assetToAToken[asset];
+
+        emit SuppliedToAave(asset, amount, aToken);
+    }
+
+    /**
+     * @dev Get aToken balance for this pool (principal + yield)
+     * @param asset Asset address
+     * @return aToken balance
+     */
+    function getATokenBalance(address asset) external view returns (uint256) {
+        address aToken = assetToAToken[asset];
+        if (aToken == address(0)) return 0;
+
+        return IAToken(aToken).balanceOf(address(this));
+    }
+
+    /**
+     * @dev Calculate yield earned from Aave
+     * @param asset Asset address
+     * @return Yield amount (aToken balance - supplied amount)
+     */
+    function getAaveYield(address asset) external view returns (uint256) {
+        address aToken = assetToAToken[asset];
+        if (aToken == address(0)) return 0;
+
+        uint256 aTokenBalance = IAToken(aToken).balanceOf(address(this));
+        uint256 supplied = suppliedToAave[asset];
+
+        if (aTokenBalance > supplied) {
+            return aTokenBalance - supplied;
+        }
+        return 0;
     }
 }

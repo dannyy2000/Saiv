@@ -2,10 +2,8 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/saiv_platform', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    // Remove deprecated options - they are now the default in Mongoose 6+
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/saiv_platform');
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {

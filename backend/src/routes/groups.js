@@ -25,6 +25,7 @@ router.put('/:groupId', authMiddleware, validateGroupUpdate, groupController.upd
 // Payment window management
 router.post('/:groupId/payment-window', authMiddleware, validateGroupId, groupController.createPaymentWindow);
 router.put('/:groupId/payment-window/:windowNumber/complete', authMiddleware, validateGroupId, groupController.completePaymentWindow);
+router.post('/:groupId/windows/:windowNumber/complete', authMiddleware, validateGroupId, groupController.completePaymentWindow);
 router.get('/:groupId/payment-window/:windowNumber', authMiddleware, validateGroupId, groupController.getPaymentWindow);
 router.get('/:groupId/payment-windows', authMiddleware, validateGroupId, groupController.getPaymentWindows);
 

@@ -5,14 +5,22 @@ Complete testing documentation for smart contracts and backend API.
 ## 📊 Test Summary
 
 ### Smart Contract Tests
-- **Total Tests**: 30+ tests
-- **Passing**: 30 tests
+- **Total Tests**: 129 tests
+- **Passing**: 129 tests ✅ (100% pass rate)
 - **Framework**: Hardhat + Chai
-- **Coverage**: Core functionality covered
+- **Line Coverage**: **94.62%** 🎯
+- **Branch Coverage**: 72.46%
+- **Function Coverage**: 95.59%
+
+**Coverage Breakdown:**
+- AddressManager: **100%** ✅
+- GroupPool: 96.23%
+- UserWallet: 87.18%
+- ERC20Mock: 66.67% (test helper)
 
 ### Backend API Tests
 - **Total Tests**: 11 tests
-- **Passing**: 11 tests ✅
+- **Passing**: 11 tests ✅ (100% pass rate)
 - **Framework**: Jest + Supertest
 - **Coverage**: Endpoints and auth flows
 

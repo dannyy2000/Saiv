@@ -1,18 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import {
-  ThirdwebProvider,
-  embeddedWallet,
-  metamaskWallet,
-  walletConnect,
-} from '@thirdweb-dev/react';
+import type { ReactElement } from 'react';
+import { useEffect, useState } from 'react';
+import { ThirdwebProvider } from 'thirdweb/react';
+import { ethereum } from 'thirdweb/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/providers/auth-context';
 
-export function Providers({ children }: { children: React.ReactNode }): JSX.Element {
+export function Providers({ children }: { children: React.ReactNode }): ReactElement {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -26,28 +23,6 @@ export function Providers({ children }: { children: React.ReactNode }): JSX.Elem
     },
   }));
 
-  const walletConnectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
-  const supportedWallets = useMemo(() => {
-    const wallets = [
-      embeddedWallet({
-        auth: {
-          options: ['email'],
-        },
-      }),
-      metamaskWallet(),
-    ];
-
-    if (walletConnectId) {
-      wallets.push(
-        walletConnect({
-          projectId: walletConnectId,
-        })
-      );
-    }
-
-    return wallets;
-  }, [walletConnectId]);
-
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID) {
       // eslint-disable-next-line no-console
@@ -55,18 +30,10 @@ export function Providers({ children }: { children: React.ReactNode }): JSX.Elem
     }
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem('thirdweb:lastConnectedWalletId');
-    }
-  }, []);
-
   return (
     <ThirdwebProvider
-      autoConnect={false}
       clientId={process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID}
-      activeChain="polygon"
-      supportedWallets={supportedWallets}
+      activeChain={ethereum}
       dAppMeta={{
         name: 'Saiv Command Center',
         description: 'Gasless Web3 savings and coordination for pods and personal vaults.',

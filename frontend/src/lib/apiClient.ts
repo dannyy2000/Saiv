@@ -13,15 +13,20 @@ export interface ProblemDetail {
   [key: string]: unknown;
 }
 
-const DEFAULT_API_BASE_URL = "http://localhost:4000/api";
+const DEFAULT_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
+const DEFAULT_API_BASE_URL =
+  typeof window !== "undefined"
+    ? "/api"
+    : (process.env.NEXT_PUBLIC_API_BASE_URL ?? `${DEFAULT_BACKEND_URL.replace(/\/$/, "")}/api`);
 const STORAGE_KEY = "saiv-auth-token";
 
 let authToken: string | null = null;
 let unauthorizedHandler: (() => void) | null = null;
 
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL,
+  baseURL: DEFAULT_API_BASE_URL,
   withCredentials: false,
+  timeout: 15000, // Fail fast instead of leaving the UI stuck
 });
 
 type MaybeEnvelope<T> = ApiEnvelope<T> | T;

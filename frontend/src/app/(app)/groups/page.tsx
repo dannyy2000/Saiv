@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ChevronDown, ChevronUp, PlusCircle, Users } from 'lucide-react';
@@ -32,14 +33,9 @@ import { toast } from 'sonner';
 const createGroupSchema = z.object({
   name: z.string().min(3, 'Group name must be at least 3 characters'),
   description: z.string().optional(),
-  paymentWindowDuration: z
-    .number({ invalid_type_error: 'Provide a duration in days' })
-    .min(1, 'Payment window must be at least 1 day'),
+  paymentWindowDuration: z.number().min(1, 'Payment window must be at least 1 day'),
   minContribution: z.string().optional(),
-  maxMembers: z
-    .number({ invalid_type_error: 'Provide a maximum member count' })
-    .min(2, 'Need at least 2 members')
-    .max(100, 'Keep pods manageable'),
+  maxMembers: z.number().min(2, 'Need at least 2 members').max(100, 'Keep pods manageable'),
   currency: z.string().default('ETH'),
 });
 
@@ -52,7 +48,11 @@ export default function GroupsPage(): ReactElement {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   const groupForm = useForm<CreateGroupFormValues>({
-    resolver: zodResolver(createGroupSchema),
+  // zodResolver types may conflict with the zod version bundled with the
+  // resolver package. Cast the resolver function through `unknown` to avoid
+  // overload incompatibilities (avoid `any` to satisfy linting), then assert
+  // the overall Resolver type for useForm.
+  resolver: (zodResolver as unknown as (...args: unknown[]) => unknown)(createGroupSchema) as Resolver<CreateGroupFormValues>,
     defaultValues: {
       name: '',
       description: '',
@@ -175,10 +175,6 @@ export default function GroupsPage(): ReactElement {
   });
 
   const selectedGroup = selectedGroupId ? groupDetails : null;
-  const isMember = selectedGroup?.members?.some((member) => {
-    const memberId = member.user?._id ?? member.userId ?? (member.user as { id?: string })?.id;
-    return memberId === currentUserId;
-  });
   const isAdmin = selectedGroup?.members?.some((member) => {
     const memberId = member.user?._id ?? member.userId ?? (member.user as { id?: string })?.id;
     return memberId === currentUserId && member.role === 'admin';
@@ -228,10 +224,12 @@ export default function GroupsPage(): ReactElement {
               groups.map((group) => {
                 const memberCount = group.members?.length ?? 0;
                 const minContribution = group.poolSettings?.minContribution ?? '0';
-                const alreadyMember = group.members?.some((member) => {
-                  const memberId = member.user?._id ?? member.userId ?? (member.user as { id?: string })?.id;
-                  return memberId === currentUserId;
-                });
+                const alreadyMember = Boolean(
+                  group.members?.some((member) => {
+                    const memberId = member.user?._id ?? member.userId ?? (member.user as { id?: string })?.id;
+                    return memberId === currentUserId;
+                  }),
+                );
                 const active = selectedGroupId === (group._id ?? group.id ?? '');
 
                 return (
@@ -255,7 +253,7 @@ export default function GroupsPage(): ReactElement {
                         variant="primary"
                         size="sm"
                         onClick={() => onJoinOrLeave(group._id ?? group.id ?? '', alreadyMember)}
-                        isLoading={joinMutation.isLoading || leaveMutation.isLoading}
+                        isLoading={joinMutation.isPending || leaveMutation.isPending}
                       >
                         {alreadyMember ? 'Leave group' : 'Join group'}
                       </Button>
@@ -321,7 +319,7 @@ export default function GroupsPage(): ReactElement {
                                               windowNumber: window.windowNumber,
                                             })
                                           }
-                                          isLoading={completeWindowMutation.isLoading}
+                                          isLoading={completeWindowMutation.isPending}
                                         >
                                           Mark complete
                                         </Button>
@@ -337,7 +335,7 @@ export default function GroupsPage(): ReactElement {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => paymentWindowMutation.mutate(group._id ?? group.id ?? '')}
-                                  isLoading={paymentWindowMutation.isLoading}
+                                  isLoading={paymentWindowMutation.isPending}
                                 >
                                   Create payment window
                                 </Button>
@@ -409,7 +407,7 @@ export default function GroupsPage(): ReactElement {
                 variant="primary"
                 size="md"
                 leftIcon={<PlusCircle className="h-4 w-4" />}
-                isLoading={createMutation.isLoading}
+                isLoading={createMutation.isPending}
               >
                 Launch group
               </Button>

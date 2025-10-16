@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
+import type { Resolver } from 'react-hook-form';
 import { z } from 'zod';
 import { ArrowDownToLine, ArrowUpRight, PiggyBank, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +35,10 @@ const personalSchema = z.object({
   targetAmount: z.string().min(1, 'Enter a target amount'),
   currency: z.string().default('ETH'),
   tokenAddress: z.string().optional(),
-  interest: z.number({ invalid_type_error: 'Provide an interest rate' }).optional(),
+  interest: z.preprocess((val) => {
+    if (val === '' || val === null || typeof val === 'undefined') return undefined;
+    return Number(val);
+  }, z.number().optional()),
   minContribution: z.string().optional(),
   lockUntilDate: z.string().optional(),
 });
@@ -45,7 +49,10 @@ const groupSchema = z.object({
   targetAmount: z.string().min(1, 'Enter a target amount'),
   currency: z.string().default('ETH'),
   tokenAddress: z.string().optional(),
-  interest: z.number({ invalid_type_error: 'Provide an interest rate' }).optional(),
+  interest: z.preprocess((val) => {
+    if (val === '' || val === null || typeof val === 'undefined') return undefined;
+    return Number(val);
+  }, z.number().optional()),
 });
 
 type PersonalFormValues = z.infer<typeof personalSchema>;
@@ -215,7 +222,7 @@ export default function SavingsPage(): ReactElement {
   });
 
   const personalForm = useForm<PersonalFormValues>({
-    resolver: zodResolver(personalSchema),
+    resolver: (zodResolver as unknown as (...args: unknown[]) => unknown)(personalSchema) as Resolver<PersonalFormValues>,
     defaultValues: {
       name: '',
       description: '',
@@ -229,7 +236,7 @@ export default function SavingsPage(): ReactElement {
   });
 
   const groupForm = useForm<GroupFormValues>({
-    resolver: zodResolver(groupSchema),
+    resolver: (zodResolver as unknown as (...args: unknown[]) => unknown)(groupSchema) as Resolver<GroupFormValues>,
     defaultValues: {
       groupId: '',
       name: '',

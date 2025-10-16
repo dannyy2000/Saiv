@@ -1,13 +1,9 @@
+
 'use client';
 
 import type { ReactElement } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  useAddress,
-  useConnectionStatus,
-  useDisconnect,
-  useUser,
-} from '@thirdweb-dev/react';
+import { useActiveAccount, useActiveWallet, useActiveWalletConnectionStatus, useDisconnect } from 'thirdweb/react';
 import { toast } from 'sonner';
 import {
   apiClient,
@@ -36,7 +32,7 @@ type AuthContextValue = {
   isAuthenticated: boolean;
   isLoading: boolean;
   isRegistering: boolean;
-  connectionStatus: ReturnType<typeof useConnectionStatus>;
+  connectionStatus: ReturnType<typeof useActiveWalletConnectionStatus>;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
   setUser: (profile: BackendUser | null) => void;
@@ -89,11 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const connectionStatus = useConnectionStatus();
-  const address = useAddress();
-  const { user: thirdwebUser } = useUser();
+  const connectionStatus = useActiveWalletConnectionStatus();
+  const activeAccount = useActiveAccount();
+  const address = activeAccount?.address ?? null;
+  const activeWallet = useActiveWallet();
   const disconnect = useDisconnect();
-  const email = (thirdwebUser as { email?: string } | undefined)?.email ?? null;
 
   const registeringRef = useRef(false);
 
@@ -110,14 +106,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 
   const signOut = useCallback(async () => {
     try {
-      await disconnect();
+      if (activeWallet) {
+        await disconnect.disconnect(activeWallet);
+      }
     } catch (error) {
       console.error('Failed to disconnect wallet', error);
     } finally {
       clearSession();
       setIsBootstrapping(false);
     }
-  }, [clearSession, disconnect]);
+  }, [clearSession, disconnect, activeWallet]);
 
   const fetchProfile = useCallback(
     async (overrideToken?: string | null) => {
@@ -178,6 +176,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     void fetchProfile();
   }, [token, fetchProfile]);
 
+  // Sync token set by ConnectButton auth flow into context state
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      const stored = getAuthToken();
+      if (stored && stored !== token) {
+        setTokenState(stored);
+      }
+    }
+  }, [connectionStatus, token]);
+
   useEffect(() => {
     if (connectionStatus === 'disconnected' && token) {
       void signOut();
@@ -189,9 +197,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       return;
     }
 
+    // If a token already exists (e.g., set by ConnectButton auth), sync it and skip re-registering
+    const stored = getAuthToken();
+    if (stored) {
+      setTokenState(stored);
+      return;
+    }
+
   const eoaAddress = address;
 
-    if (!email && !eoaAddress) {
+    if (!eoaAddress) {
       return;
     }
 
@@ -201,8 +216,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 
     const register = async () => {
       try {
-        const endpoint = email ? '/auth/register/email' : '/auth/register/wallet';
-        const payload = email ? { email } : { eoaAddress };
+        const endpoint = '/auth/register/wallet';
+        const payload = { eoaAddress };
         const response = await apiClient.post(endpoint, payload);
         const result = extractData(response) as RegisterResponse;
         const nextToken = deriveToken(result);
@@ -245,7 +260,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     return () => {
       isActive = false;
     };
-  }, [address, connectionStatus, email, fetchProfile, persistToken, signOut, token]);
+  }, [address, connectionStatus, fetchProfile, persistToken, signOut, token]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

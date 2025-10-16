@@ -4,6 +4,7 @@ const authController = require('../controllers/authController');
 const { authMiddleware } = require('../middleware/auth');
 const { body } = require('express-validator');
 const { handleValidationErrors } = require('../middleware/validation');
+const { authLimiter, createAccountLimiter } = require('../middleware/rateLimiter');
 
 const validateEmailRegistration = [
   body('email')
@@ -31,9 +32,9 @@ const validateBalanceUpdate = [
   handleValidationErrors
 ];
 
-router.post('/register/email', validateEmailRegistration, authController.registerWithEmail);
+router.post('/register/email', createAccountLimiter, validateEmailRegistration, authController.registerWithEmail);
 
-router.post('/register/wallet', validateWalletRegistration, authController.registerWithWallet);
+router.post('/register/wallet', createAccountLimiter, validateWalletRegistration, authController.registerWithWallet);
 
 router.get('/profile', authMiddleware, authController.getProfile);
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -20,6 +20,9 @@ contract UserWallet is ReentrancyGuard, Ownable {
     // Address manager contract that can perform operations
     address public manager;
 
+    // Initialization flag
+    bool private _initialized;
+
     // Mapping to track token balances
     mapping(address => uint256) public tokenBalances;
 
@@ -32,8 +35,8 @@ contract UserWallet is ReentrancyGuard, Ownable {
         _;
     }
 
-    constructor() {
-        // Constructor is empty as we use initialize pattern
+    constructor() Ownable(msg.sender) {
+        // Temporary owner, will be transferred in initialize()
     }
 
     /**
@@ -42,10 +45,11 @@ contract UserWallet is ReentrancyGuard, Ownable {
      * @param _manager The address manager contract
      */
     function initialize(address _owner, address _manager) external {
-        require(owner() == address(0), "Already initialized");
+        require(!_initialized, "Already initialized");
         require(_owner != address(0), "Invalid owner");
         require(_manager != address(0), "Invalid manager");
 
+        _initialized = true;
         _transferOwnership(_owner);
         manager = _manager;
 

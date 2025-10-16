@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -47,6 +47,9 @@ contract GroupPool is ReentrancyGuard, Ownable {
     uint256 public minContribution;
     uint256 public maxMembers;
 
+    // Initialization flag
+    bool private _initialized;
+
     // Mappings
     mapping(uint256 => PaymentWindow) public paymentWindows;
     mapping(address => bool) public isGroupMember;
@@ -72,8 +75,8 @@ contract GroupPool is ReentrancyGuard, Ownable {
         _;
     }
 
-    constructor() {
-        // Constructor is empty as we use initialize pattern
+    constructor() Ownable(msg.sender) {
+        // Temporary owner, will be transferred in initialize()
     }
 
     /**
@@ -93,10 +96,12 @@ contract GroupPool is ReentrancyGuard, Ownable {
         uint256 _minContribution,
         uint256 _maxMembers
     ) external {
-        require(owner() == address(0), "Already initialized");
+        require(!_initialized, "Already initialized");
         require(_owner != address(0), "Invalid owner");
         require(_manager != address(0), "Invalid manager");
         require(_paymentWindowDuration > 0, "Invalid payment window duration");
+
+        _initialized = true;
 
         _transferOwnership(_owner);
         manager = _manager;
@@ -304,7 +309,11 @@ contract GroupPool is ReentrancyGuard, Ownable {
     /**
      * @dev Get payment window details
      * @param windowNumber Window number to query
-     * @return Window details
+     * @return start Window start time
+     * @return end Window end time
+     * @return total Total contributions
+     * @return active Window active status
+     * @return completed Window completed status
      */
     function getPaymentWindow(uint256 windowNumber)
         external
@@ -376,7 +385,9 @@ contract GroupPool is ReentrancyGuard, Ownable {
 
     /**
      * @dev Get pool balances
-     * @return ETH balance and token balances
+     * @return ethBalance ETH balance
+     * @return tokens List of supported tokens
+     * @return tokenBalances Token balance amounts
      */
     function getPoolBalances()
         external

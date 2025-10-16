@@ -6,15 +6,9 @@ describe("UserWallet", function () {
   let userWallet, owner, user1, user2, manager, token1, token2;
   const initialEthBalance = ethers.parseEther("10");
 
-  beforeEach(async function () {
-    ({ owner, user1, user2 } = await TestHelper.createTestUser());
-    ({ token1, token2 } = await TestHelper.createTestTokens());
-
-    // Deploy wallet implementation
-    userWallet = await TestHelper.deployUserWallet();
-
-    // Initialize wallet
-    await userWallet.initialize(owner.address, user1.address); // owner is wallet owner, user1 is manager
+  // Helper to initialize and fund wallet
+  async function initializeAndFundWallet() {
+    await userWallet.initialize(owner.address, user1.address);
 
     // Fund wallet with ETH
     await owner.sendTransaction({
@@ -25,17 +19,29 @@ describe("UserWallet", function () {
     // Fund test tokens to users
     await token1.mint(owner.address, ethers.parseEther("1000"));
     await token2.mint(owner.address, ethers.parseEther("1000"));
+  }
+
+  beforeEach(async function () {
+    ({ owner, user1, user2 } = await TestHelper.createTestUser());
+    ({ token1, token2 } = await TestHelper.createTestTokens());
+
+    // Deploy wallet implementation
+    userWallet = await TestHelper.deployUserWallet();
 
     manager = user1; // AddressManager acts as manager
   });
 
   describe("Initialization", function () {
     it("Should initialize correctly", async function () {
+      await userWallet.initialize(owner.address, user1.address);
+
       expect(await userWallet.owner()).to.equal(owner.address);
       expect(await userWallet.manager()).to.equal(user1.address);
     });
 
     it("Should not initialize if already initialized", async function () {
+      await userWallet.initialize(owner.address, user1.address);
+
       await expect(
         userWallet.initialize(user2.address, user1.address)
       ).to.be.revertedWith("Already initialized");
@@ -67,6 +73,10 @@ describe("UserWallet", function () {
   });
 
   describe("ETH Operations", function () {
+    beforeEach(async function () {
+      await initializeAndFundWallet();
+    });
+
     it("Should receive ETH deposits", async function () {
       const depositAmount = ethers.parseEther("1");
       const initialBalance = await userWallet.getEthBalance();
@@ -176,6 +186,7 @@ describe("UserWallet", function () {
 
   describe("Token Operations", function () {
     beforeEach(async function () {
+      await initializeAndFundWallet();
       // Add token support
       await userWallet.addSupportedToken(token1.target);
       await userWallet.addSupportedToken(token2.target);
@@ -197,6 +208,9 @@ describe("UserWallet", function () {
 
       expect(finalWalletBalance).to.equal(initialWalletBalance + depositAmount);
       expect(finalContractBalance).to.equal(initialContractBalance + depositAmount);
+
+      // Approve again for the second deposit
+      await token1.approve(userWallet.target, depositAmount);
 
       await expect(userWallet.depositToken(token1.target, depositAmount))
         .to.emit(userWallet, "TokenDeposited")
@@ -306,6 +320,10 @@ describe("UserWallet", function () {
   });
 
   describe("Token Management", function () {
+    beforeEach(async function () {
+      await initializeAndFundWallet();
+    });
+
     it("Should add supported tokens", async function () {
       await userWallet.addSupportedToken(token1.target);
 
@@ -358,6 +376,10 @@ describe("UserWallet", function () {
   });
 
   describe("Access Control", function () {
+    beforeEach(async function () {
+      await initializeAndFundWallet();
+    });
+
     it("Should restrict token operations to owner or manager", async function () {
       await expect(
         userWallet.connect(user2).addSupportedToken(token1.target)
@@ -379,6 +401,10 @@ describe("UserWallet", function () {
   });
 
   describe("Reentrancy Protection", function () {
+    beforeEach(async function () {
+      await initializeAndFundWallet();
+    });
+
     it("Should prevent reentrancy in ETH withdrawal", async function () {
       // This would require a malicious contract, but we can test that nonReentrant works
       const withdrawAmount = ethers.parseEther("1");
@@ -405,6 +431,10 @@ describe("UserWallet", function () {
   });
 
   describe("Balance Queries", function () {
+    beforeEach(async function () {
+      await initializeAndFundWallet();
+    });
+
     it("Should return correct ETH balance", async function () {
       const balance = await userWallet.getEthBalance();
       expect(balance).to.equal(initialEthBalance);
@@ -441,6 +471,10 @@ describe("UserWallet", function () {
   });
 
   describe("Edge Cases", function () {
+    beforeEach(async function () {
+      await initializeAndFundWallet();
+    });
+
     it("Should handle multiple token deposits and withdrawals", async function () {
       await userWallet.addSupportedToken(token1.target);
       await userWallet.addSupportedToken(token2.target);

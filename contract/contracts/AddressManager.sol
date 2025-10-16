@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./UserWallet.sol";
@@ -94,12 +94,12 @@ contract AddressManager {
         // Create main wallet
         bytes32 mainSalt = keccak256(abi.encodePacked(userIdentifier, "main", block.timestamp));
         mainWallet = Clones.cloneDeterministic(walletImplementation, mainSalt);
-        UserWallet(mainWallet).initialize(userIdentifier, address(this));
+        UserWallet(payable(mainWallet)).initialize(userIdentifier, address(this));
 
         // Create savings wallet
         bytes32 savingsSalt = keccak256(abi.encodePacked(userIdentifier, "savings", block.timestamp));
         savingsWallet = Clones.cloneDeterministic(walletImplementation, savingsSalt);
-        UserWallet(savingsWallet).initialize(userIdentifier, address(this));
+        UserWallet(payable(savingsWallet)).initialize(userIdentifier, address(this));
 
         // Store mappings
         userToMainWallet[userIdentifier] = mainWallet;
@@ -136,12 +136,12 @@ contract AddressManager {
         // Create main wallet
         bytes32 mainSalt = keccak256(abi.encodePacked(emailHash, "main", block.timestamp));
         mainWallet = Clones.cloneDeterministic(walletImplementation, mainSalt);
-        UserWallet(mainWallet).initialize(userIdentifier, address(this));
+        UserWallet(payable(mainWallet)).initialize(userIdentifier, address(this));
 
         // Create savings wallet
         bytes32 savingsSalt = keccak256(abi.encodePacked(emailHash, "savings", block.timestamp));
         savingsWallet = Clones.cloneDeterministic(walletImplementation, savingsSalt);
-        UserWallet(savingsWallet).initialize(userIdentifier, address(this));
+        UserWallet(payable(savingsWallet)).initialize(userIdentifier, address(this));
 
         // Store mappings
         emailHashToMainWallet[emailHash] = mainWallet;
@@ -283,7 +283,7 @@ contract AddressManager {
         require(walletAddr != address(0), "Invalid wallet address");
         require(token != address(0), "Invalid token address");
 
-        UserWallet(walletAddr).addSupportedToken(token);
+        UserWallet(payable(walletAddr)).addSupportedToken(token);
     }
 
     /**
@@ -297,7 +297,7 @@ contract AddressManager {
         require(token != address(0), "Invalid token address");
 
         for (uint256 i = 0; i < allWallets.length; i++) {
-            try UserWallet(allWallets[i]).addSupportedToken(token) {
+            try UserWallet(payable(allWallets[i])).addSupportedToken(token) {
                 // Token added successfully
             } catch {
                 // Skip if token already supported or other error
@@ -333,7 +333,7 @@ contract AddressManager {
         poolAddress = Clones.cloneDeterministic(groupPoolImplementation, salt);
 
         // Initialize the group pool
-        GroupPool(poolAddress).initialize(
+        GroupPool(payable(poolAddress)).initialize(
             groupOwner,
             address(this),
             groupName,
@@ -399,7 +399,7 @@ contract AddressManager {
         require(poolAddress != address(0), "Invalid pool address");
         require(member != address(0), "Invalid member address");
 
-        GroupPool(poolAddress).addMember(member);
+        GroupPool(payable(poolAddress)).addMember(member);
     }
 
     /**
@@ -411,7 +411,7 @@ contract AddressManager {
         require(poolAddress != address(0), "Invalid pool address");
         require(member != address(0), "Invalid member address");
 
-        GroupPool(poolAddress).removeMember(member);
+        GroupPool(payable(poolAddress)).removeMember(member);
     }
 
     /**
@@ -423,7 +423,7 @@ contract AddressManager {
         require(poolAddress != address(0), "Invalid pool address");
         require(tokenAddress != address(0), "Invalid token address");
 
-        GroupPool(poolAddress).addSupportedToken(tokenAddress);
+        GroupPool(payable(poolAddress)).addSupportedToken(tokenAddress);
     }
 
     /**

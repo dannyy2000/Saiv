@@ -179,6 +179,56 @@ const savingsSchema = new mongoose.Schema({
       comment: 'Reward or bonus for reaching milestone'
     }
   }],
+  aavePosition: {
+    isSupplied: {
+      type: Boolean,
+      default: false,
+      comment: 'Whether funds are currently supplied to Aave'
+    },
+    aTokenAddress: {
+      type: String,
+      default: null,
+      comment: 'Aave aToken address (receipt token)'
+    },
+    suppliedAmount: {
+      type: String,
+      default: '0',
+      comment: 'Amount supplied to Aave in wei'
+    },
+    aTokenBalance: {
+      type: String,
+      default: '0',
+      comment: 'Current aToken balance (increases with yield)'
+    },
+    lastSupplyTimestamp: {
+      type: Date,
+      default: null
+    },
+    lastWithdrawTimestamp: {
+      type: Date,
+      default: null
+    },
+    totalYieldEarned: {
+      type: String,
+      default: '0',
+      comment: 'Total yield earned from Aave'
+    },
+    currentAPY: {
+      type: Number,
+      default: 0,
+      comment: 'Current Aave supply APY percentage'
+    },
+    supplyTransactions: [{
+      amount: String,
+      timestamp: Date,
+      transactionHash: String,
+      type: {
+        type: String,
+        enum: ['supply', 'withdraw'],
+        required: true
+      }
+    }]
+  },
   stats: {
     totalDeposited: {
       type: String,

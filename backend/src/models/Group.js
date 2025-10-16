@@ -84,6 +84,26 @@ const groupSchema = new mongoose.Schema({
       type: Date,
       required: true
     },
+    contributors: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      amount: {
+        type: String,
+        required: true
+      },
+      timestamp: {
+        type: Date,
+        default: Date.now
+      },
+      transactionHash: String,
+      tokenAddress: {
+        type: String,
+        default: null,
+        comment: 'Token address for ERC-20 contributions, null for ETH'
+      }
+    }],
     contributionsReceived: [{
       member: {
         type: mongoose.Schema.Types.ObjectId,
@@ -137,7 +157,7 @@ const groupSchema = new mongoose.Schema({
 });
 
 groupSchema.index({ owner: 1 });
-groupSchema.index({ address: 1 });
+// Note: address already has a unique index from unique: true property
 groupSchema.index({ 'members.user': 1 });
 groupSchema.index({ savings: 1 });
 groupSchema.index({ currentPaymentWindow: 1 });

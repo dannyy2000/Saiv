@@ -68,10 +68,8 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-userSchema.index({ email: 1 });
-userSchema.index({ eoaAddress: 1 });
-userSchema.index({ address: 1 });
-userSchema.index({ savingsAddress: 1 });
+// Note: email, eoaAddress, address, and savingsAddress already have unique indexes
+// from the unique: true property, so we don't need to declare them again
 userSchema.index({ registrationType: 1 });
 
 module.exports = mongoose.model('User', userSchema);

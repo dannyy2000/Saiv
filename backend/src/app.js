@@ -5,29 +5,60 @@ const morgan = require('morgan');
 const connectDB = require('./config/database');
 const contractService = require('./services/contractService');
 const gaslessService = require('./services/gaslessService');
+const aaveService = require('./services/aaveService');
 require('dotenv').config();
 
 const app = express();
 
 connectDB();
 
-contractService.initialize().catch(err => {
-  console.warn('Contract service initialization failed:', err.message);
-});
+// Wrap in async IIFE to handle initialization properly
+(async () => {
+  try {
+    if (contractService && typeof contractService.initialize === 'function') {
+      await contractService.initialize();
+    }
+  } catch (err) {
+    console.warn('Contract service initialization failed:', err.message);
+  }
+})();
 
 // Initialize gasless service for backend-paid transactions
-gaslessService.initialize().then(success => {
-  if (success) {
-    console.log('✅ GASLESS SERVICE ENABLED - Users pay NO gas fees');
-    console.log('   - Registration: FREE (backend pays gas)');
-    console.log('   - Create Group: FREE (backend pays gas)');
-    console.log('   - Join Group: FREE (backend pays gas)');
-  } else {
-    console.warn('⚠️ Gasless service disabled - Check ADMIN_PRIVATE_KEY in .env');
+(async () => {
+  try {
+    if (gaslessService && typeof gaslessService.initialize === 'function') {
+      const success = await gaslessService.initialize();
+      if (success) {
+        console.log('✅ GASLESS SERVICE ENABLED - Users pay NO gas fees');
+        console.log('   - Registration: FREE (backend pays gas)');
+        console.log('   - Create Group: FREE (backend pays gas)');
+        console.log('   - Join Group: FREE (backend pays gas)');
+      } else {
+        console.warn('⚠️ Gasless service disabled - Check ADMIN_PRIVATE_KEY in .env');
+      }
+    }
+  } catch (err) {
+    console.error('Gasless service initialization error:', err.message);
   }
-}).catch(err => {
-  console.error('Gasless service initialization error:', err.message);
-});
+})();
+
+// Initialize Aave service for yield generation
+(async () => {
+  try {
+    if (aaveService && typeof aaveService.initialize === 'function') {
+      const success = await aaveService.initialize();
+      if (success) {
+        console.log('✅ AAVE SERVICE ENABLED - Savings earn yield automatically');
+        console.log('   - Personal Savings: Auto-supply to Aave after deposit');
+        console.log('   - Group Savings: Auto-supply to Aave when payment window completes');
+      } else {
+        console.warn('⚠️ Aave service disabled - Check ADMIN_PRIVATE_KEY in .env');
+      }
+    }
+  } catch (err) {
+    console.error('Aave service initialization error:', err.message);
+  }
+})();
 
 app.use(helmet());
 app.use(cors());

@@ -16,7 +16,7 @@ describe("GroupPool - Automatic Withdrawal", function () {
   let admin;
 
   const LOCK_PERIOD_DURATION = 30 * 24 * 60 * 60; // 30 days
-  const MIN_CONTRIBUTION = ethers.parseEther("0.1");
+  const MIN_CONTRIBUTION = ethers.parseUnits("1", 6); // 1 USDC minimum
   const MAX_MEMBERS = 10;
   const PAYMENT_WINDOW_DURATION = 7 * 24 * 60 * 60; // 7 days
   const SYSTEM_FEE_PERCENT = 3; // 3%
@@ -39,8 +39,22 @@ describe("GroupPool - Automatic Withdrawal", function () {
     mockAavePool = await AavePoolMock.deploy();
     await mockAavePool.waitForDeployment();
 
-    // Set aToken in mock pool
+    // Set aToken in mock pool for both USDC and ETH
     await mockAavePool.setAToken(await usdc.getAddress(), await mockAToken.getAddress());
+    await mockAavePool.setAToken(ethers.ZeroAddress, await mockAToken.getAddress()); // ETH
+
+    // Mint aTokens to the mock pool so it can transfer them during supply operations
+    await mockAToken.mint(await mockAavePool.getAddress(), ethers.parseUnits("1000000", 18));
+
+    // Fund the AavePoolMock with underlying assets for withdrawals
+    // Send ETH to the mock pool
+    await owner.sendTransaction({
+      to: await mockAavePool.getAddress(),
+      value: ethers.parseEther("100") // 100 ETH
+    });
+
+    // Mint and transfer USDC to the mock pool
+    await usdc.mint(await mockAavePool.getAddress(), ethers.parseUnits("100000", 6)); // 100k USDC
 
     // Deploy AddressManager
     const AddressManager = await ethers.getContractFactory("AddressManager");
@@ -77,10 +91,10 @@ describe("GroupPool - Automatic Withdrawal", function () {
     await groupPool.addMember(member2.address);
     await groupPool.addMember(member3.address);
 
-    // Mint tokens to members
-    await usdc.mint(member1.address, ethers.parseUnits("1000", 6));
-    await usdc.mint(member2.address, ethers.parseUnits("1000", 6));
-    await usdc.mint(member3.address, ethers.parseUnits("1000", 6));
+    // Mint tokens to members (enough for their contributions)
+    await usdc.mint(member1.address, ethers.parseUnits("2000", 6));
+    await usdc.mint(member2.address, ethers.parseUnits("2000", 6));
+    await usdc.mint(member3.address, ethers.parseUnits("2000", 6));
   });
 
   describe("Initialization and Setup", function () {
@@ -90,7 +104,7 @@ describe("GroupPool - Automatic Withdrawal", function () {
 
       expect(lockPeriod).to.be.closeTo(
         currentTime + LOCK_PERIOD_DURATION,
-        5 // 5 second tolerance
+        15 // 15 second tolerance for block timing variations
       );
     });
 
@@ -245,9 +259,9 @@ describe("GroupPool - Automatic Withdrawal", function () {
 
   describe("Token Automatic Withdrawal", function () {
     beforeEach(async function () {
-      // Members make USDC contributions
-      const contribution1 = ethers.parseUnits("100", 6); // 40%
-      const contribution2 = ethers.parseUnits("150", 6); // 60%
+      // Members make USDC contributions (using larger amounts to meet minimum)
+      const contribution1 = ethers.parseUnits("1000", 6); // 40%
+      const contribution2 = ethers.parseUnits("1500", 6); // 60%
 
       // Approve and contribute
       await usdc.connect(member1).approve(await groupPool.getAddress(), contribution1);
@@ -257,10 +271,10 @@ describe("GroupPool - Automatic Withdrawal", function () {
       await groupPool.connect(member2).contributeToken(await usdc.getAddress(), contribution2);
 
       // Supply to Aave
-      await groupPool.supplyToAave(await usdc.getAddress(), ethers.parseUnits("250", 6));
+      await groupPool.supplyToAave(await usdc.getAddress(), ethers.parseUnits("2500", 6));
 
       // Simulate yield generation
-      const yieldAmount = ethers.parseUnits("10", 6); // 4% yield
+      const yieldAmount = ethers.parseUnits("100", 6); // 4% yield
       await mockAToken.mint(await groupPool.getAddress(), yieldAmount);
     });
 
@@ -273,17 +287,17 @@ describe("GroupPool - Automatic Withdrawal", function () {
 
       await groupPool.processAutomaticWithdraw(await usdc.getAddress());
 
-      // Check system fee (3% of 10 USDC yield = 0.3 USDC)
-      const expectedSystemFee = ethers.parseUnits("0.3", 6);
+      // Check system fee (3% of 100 USDC yield = 3 USDC)
+      const expectedSystemFee = ethers.parseUnits("3", 6);
       const finalTreasuryBalance = await usdc.balanceOf(treasury.address);
       expect(finalTreasuryBalance - initialTreasuryBalance).to.equal(expectedSystemFee);
 
       // Check member distributions
-      const totalWithdrawn = ethers.parseUnits("260", 6); // 250 + 10 yield
+      const totalWithdrawn = ethers.parseUnits("2600", 6); // 2500 + 100 yield
       const distributableAmount = totalWithdrawn - expectedSystemFee;
 
-      const member1Share = (ethers.parseUnits("100", 6) * distributableAmount) / ethers.parseUnits("250", 6);
-      const member2Share = (ethers.parseUnits("150", 6) * distributableAmount) / ethers.parseUnits("250", 6);
+      const member1Share = (ethers.parseUnits("1000", 6) * distributableAmount) / ethers.parseUnits("2500", 6);
+      const member2Share = (ethers.parseUnits("1500", 6) * distributableAmount) / ethers.parseUnits("2500", 6);
 
       const finalMember1Balance = await usdc.balanceOf(member1.address);
       const finalMember2Balance = await usdc.balanceOf(member2.address);

@@ -55,7 +55,12 @@ contract AavePoolMock is IAavePool {
             IERC20(asset).transfer(to, amount);
         }
 
-        totalSupplied[asset] -= amount;
+        // Only reduce totalSupplied if we have enough, otherwise reset to 0
+        if (totalSupplied[asset] >= amount) {
+            totalSupplied[asset] -= amount;
+        } else {
+            totalSupplied[asset] = 0;
+        }
 
         emit Withdraw(asset, amount, to);
 

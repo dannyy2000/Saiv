@@ -446,6 +446,272 @@ describe("UserWallet", function () {
     });
   });
 
+  describe("Aave Integration", function () {
+    let mockAavePool, mockAToken;
+
+    beforeEach(async function () {
+      await initializeAndFundWallet();
+
+      // Deploy mock Aave contracts
+      const MockAavePool = await ethers.getContractFactory("MockAavePool");
+      mockAavePool = await MockAavePool.deploy();
+
+      const MockAToken = await ethers.getContractFactory("MockAToken");
+      mockAToken = await MockAToken.deploy();
+
+      // Set up Aave integration
+      await userWallet.setAavePool(mockAavePool.target);
+      await userWallet.setAToken(ethers.ZeroAddress, mockAToken.target); // ETH
+      await userWallet.setAToken(token1.target, mockAToken.target); // Token
+    });
+
+    describe("Aave Setup", function () {
+      it("Should set Aave pool correctly", async function () {
+        expect(await userWallet.aavePool()).to.equal(mockAavePool.target);
+      });
+
+      it("Should not set zero address as Aave pool", async function () {
+        await expect(
+          userWallet.setAavePool(ethers.ZeroAddress)
+        ).to.be.revertedWith("Invalid Aave pool address");
+      });
+
+      it("Should set aToken correctly", async function () {
+        expect(await userWallet.assetToAToken(ethers.ZeroAddress)).to.equal(mockAToken.target);
+        expect(await userWallet.assetToAToken(token1.target)).to.equal(mockAToken.target);
+      });
+
+      it("Should not set zero address as aToken", async function () {
+        await expect(
+          userWallet.setAToken(token1.target, ethers.ZeroAddress)
+        ).to.be.revertedWith("Invalid aToken address");
+      });
+
+      it("Should only allow owner or manager to set Aave configurations", async function () {
+        await expect(
+          userWallet.connect(user2).setAavePool(mockAavePool.target)
+        ).to.be.revertedWith("Not authorized");
+
+        await expect(
+          userWallet.connect(user2).setAToken(token1.target, mockAToken.target)
+        ).to.be.revertedWith("Not authorized");
+      });
+    });
+
+    describe("Supply to Aave", function () {
+      it("Should supply ETH to Aave correctly", async function () {
+        const supplyAmount = ethers.parseEther("1");
+        const initialBalance = await userWallet.getEthBalance();
+
+        await expect(userWallet.supplyToAave(ethers.ZeroAddress, supplyAmount))
+          .to.emit(userWallet, "SuppliedToAave")
+          .withArgs(ethers.ZeroAddress, supplyAmount, mockAToken.target);
+
+        // Check supplied amount tracking
+        expect(await userWallet.suppliedToAave(ethers.ZeroAddress)).to.equal(supplyAmount);
+
+        // Wallet balance should remain the same as this is just tracking
+        expect(await userWallet.getEthBalance()).to.equal(initialBalance);
+      });
+
+      it("Should supply tokens to Aave correctly", async function () {
+        await userWallet.addSupportedToken(token1.target);
+        await token1.approve(userWallet.target, ethers.parseEther("100"));
+        await userWallet.depositToken(token1.target, ethers.parseEther("100"));
+
+        const supplyAmount = ethers.parseEther("50");
+
+        await expect(userWallet.supplyToAave(token1.target, supplyAmount))
+          .to.emit(userWallet, "SuppliedToAave")
+          .withArgs(token1.target, supplyAmount, mockAToken.target);
+
+        expect(await userWallet.suppliedToAave(token1.target)).to.equal(supplyAmount);
+      });
+
+      it("Should not supply if Aave pool not set", async function () {
+        const newWallet = await TestHelper.deployUserWallet();
+        await newWallet.initialize(owner.address, user1.address);
+
+        await expect(
+          newWallet.supplyToAave(ethers.ZeroAddress, ethers.parseEther("1"))
+        ).to.be.revertedWith("Aave pool not set");
+      });
+
+      it("Should not supply zero amount", async function () {
+        await expect(
+          userWallet.supplyToAave(ethers.ZeroAddress, 0)
+        ).to.be.revertedWith("Amount must be greater than 0");
+      });
+
+      it("Should not supply more than balance", async function () {
+        const balance = await userWallet.getEthBalance();
+        const excessAmount = balance + ethers.parseEther("1");
+
+        await expect(
+          userWallet.supplyToAave(ethers.ZeroAddress, excessAmount)
+        ).to.be.revertedWith("Insufficient balance");
+      });
+
+      it("Should only allow owner or manager to supply", async function () {
+        await expect(
+          userWallet.connect(user2).supplyToAave(ethers.ZeroAddress, ethers.parseEther("1"))
+        ).to.be.revertedWith("Not authorized");
+      });
+    });
+
+    describe("Withdraw from Aave", function () {
+      beforeEach(async function () {
+        // Supply some ETH to Aave first
+        const supplyAmount = ethers.parseEther("2");
+        await userWallet.supplyToAave(ethers.ZeroAddress, supplyAmount);
+
+        // Mock aToken balance (principal + yield)
+        await mockAToken.setBalance(userWallet.target, ethers.parseEther("2.1"));
+      });
+
+      it("Should withdraw from Aave correctly", async function () {
+        const withdrawAmount = ethers.parseEther("1");
+        const initialBalance = await userWallet.getEthBalance();
+
+        const result = await userWallet.withdrawFromAave(ethers.ZeroAddress, withdrawAmount);
+
+        await expect(result)
+          .to.emit(userWallet, "WithdrawnFromAave")
+          .withArgs(ethers.ZeroAddress, withdrawAmount);
+
+        // Check supplied amount tracking is updated
+        const expectedRemaining = ethers.parseEther("2") - withdrawAmount;
+        expect(await userWallet.suppliedToAave(ethers.ZeroAddress)).to.equal(expectedRemaining);
+      });
+
+      it("Should withdraw all from Aave when using max amount", async function () {
+        const maxAmount = ethers.MaxUint256;
+        const aTokenBalance = await mockAToken.balanceOf(userWallet.target);
+
+        await userWallet.withdrawFromAave(ethers.ZeroAddress, maxAmount);
+
+        // Should reset supplied amount to 0 when withdrawing more than originally supplied
+        expect(await userWallet.suppliedToAave(ethers.ZeroAddress)).to.equal(0);
+      });
+
+      it("Should withdraw tokens from Aave correctly", async function () {
+        // Setup token supply first
+        await userWallet.addSupportedToken(token1.target);
+        await token1.approve(userWallet.target, ethers.parseEther("100"));
+        await userWallet.depositToken(token1.target, ethers.parseEther("100"));
+        await userWallet.supplyToAave(token1.target, ethers.parseEther("50"));
+
+        // Mock aToken balance for tokens
+        await mockAToken.setBalance(userWallet.target, ethers.parseEther("52"));
+
+        const withdrawAmount = ethers.parseEther("25");
+        const initialBalance = await userWallet.getTokenBalance(token1.target);
+
+        await userWallet.withdrawFromAave(token1.target, withdrawAmount);
+
+        // Token balance should be updated
+        const finalBalance = await userWallet.getTokenBalance(token1.target);
+        expect(finalBalance).to.equal(initialBalance + withdrawAmount);
+      });
+
+      it("Should not withdraw if Aave pool not set", async function () {
+        const newWallet = await TestHelper.deployUserWallet();
+        await newWallet.initialize(owner.address, user1.address);
+
+        await expect(
+          newWallet.withdrawFromAave(ethers.ZeroAddress, ethers.parseEther("1"))
+        ).to.be.revertedWith("Aave pool not set");
+      });
+
+      it("Should not withdraw if aToken not set", async function () {
+        const newWallet = await TestHelper.deployUserWallet();
+        await newWallet.initialize(owner.address, user1.address);
+        await newWallet.setAavePool(mockAavePool.target);
+
+        await expect(
+          newWallet.withdrawFromAave(ethers.ZeroAddress, ethers.parseEther("1"))
+        ).to.be.revertedWith("aToken not set for asset");
+      });
+
+      it("Should not withdraw if no aToken balance", async function () {
+        const newWallet = await TestHelper.deployUserWallet();
+        await newWallet.initialize(owner.address, user1.address);
+        await newWallet.setAavePool(mockAavePool.target);
+        await newWallet.setAToken(ethers.ZeroAddress, mockAToken.target);
+
+        await expect(
+          newWallet.withdrawFromAave(ethers.ZeroAddress, ethers.parseEther("1"))
+        ).to.be.revertedWith("No aToken balance");
+      });
+
+      it("Should not withdraw more than aToken balance", async function () {
+        const aTokenBalance = await mockAToken.balanceOf(userWallet.target);
+        const excessAmount = aTokenBalance + ethers.parseEther("1");
+
+        await expect(
+          userWallet.withdrawFromAave(ethers.ZeroAddress, excessAmount)
+        ).to.be.revertedWith("Insufficient aToken balance");
+      });
+
+      it("Should only allow owner or manager to withdraw", async function () {
+        await expect(
+          userWallet.connect(user2).withdrawFromAave(ethers.ZeroAddress, ethers.parseEther("1"))
+        ).to.be.revertedWith("Not authorized");
+      });
+    });
+
+    describe("Aave Balance Queries", function () {
+      beforeEach(async function () {
+        // Supply some amounts to Aave
+        await userWallet.supplyToAave(ethers.ZeroAddress, ethers.parseEther("2"));
+        await mockAToken.setBalance(userWallet.target, ethers.parseEther("2.1")); // Principal + yield
+      });
+
+      it("Should return correct aToken balance", async function () {
+        const balance = await userWallet.getATokenBalance(ethers.ZeroAddress);
+        expect(balance).to.equal(ethers.parseEther("2.1"));
+      });
+
+      it("Should return zero for unsupported asset", async function () {
+        const balance = await userWallet.getATokenBalance(token2.target);
+        expect(balance).to.equal(0);
+      });
+
+      it("Should calculate yield correctly", async function () {
+        const yield = await userWallet.getAaveYield(ethers.ZeroAddress);
+        expect(yield).to.equal(ethers.parseEther("0.1")); // 2.1 - 2.0
+      });
+
+      it("Should return zero yield when aToken balance is less than supplied", async function () {
+        // Simulate a loss scenario (shouldn't happen with Aave but for robustness)
+        await mockAToken.setBalance(userWallet.target, ethers.parseEther("1.9"));
+
+        const yield = await userWallet.getAaveYield(ethers.ZeroAddress);
+        expect(yield).to.equal(0);
+      });
+
+      it("Should check Aave savings status correctly", async function () {
+        const [hasBalance, aTokenBalance, suppliedAmount, yieldEarned] =
+          await userWallet.checkAaveSavings(ethers.ZeroAddress);
+
+        expect(hasBalance).to.be.true;
+        expect(aTokenBalance).to.equal(ethers.parseEther("2.1"));
+        expect(suppliedAmount).to.equal(ethers.parseEther("2"));
+        expect(yieldEarned).to.equal(ethers.parseEther("0.1"));
+      });
+
+      it("Should return false for unsupported asset in checkAaveSavings", async function () {
+        const [hasBalance, aTokenBalance, suppliedAmount, yieldEarned] =
+          await userWallet.checkAaveSavings(token2.target);
+
+        expect(hasBalance).to.be.false;
+        expect(aTokenBalance).to.equal(0);
+        expect(suppliedAmount).to.equal(0);
+        expect(yieldEarned).to.equal(0);
+      });
+    });
+  });
+
   describe("Edge Cases", function () {
     beforeEach(async function () {
       await initializeAndFundWallet();

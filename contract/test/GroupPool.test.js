@@ -5,7 +5,7 @@ const TestHelper = require("./utils");
 describe("GroupPool", function () {
   let groupPool, owner, user1, user2, user3, manager;
   let token1, token2;
-  let groupName, paymentWindowDuration, minContribution, maxMembers;
+  let groupName, paymentWindowDuration, minContribution, maxMembers, lockPeriodDuration, systemTreasury;
 
   // Helper to initialize pool
   async function initializePool() {
@@ -15,7 +15,9 @@ describe("GroupPool", function () {
       groupName,
       paymentWindowDuration,
       minContribution,
-      maxMembers
+      maxMembers,
+      lockPeriodDuration,
+      systemTreasury
     );
   }
 
@@ -31,6 +33,8 @@ describe("GroupPool", function () {
     paymentWindowDuration = 7 * 24 * 60 * 60; // 7 days
     minContribution = ethers.parseEther("0.01");
     maxMembers = 10;
+    lockPeriodDuration = 30 * 24 * 60 * 60; // 30 days
+    systemTreasury = user3.address; // Use user3 as treasury
     manager = user1;
   });
 
@@ -42,7 +46,9 @@ describe("GroupPool", function () {
         groupName,
         paymentWindowDuration,
         minContribution,
-        maxMembers
+        maxMembers,
+        lockPeriodDuration,
+        systemTreasury
       );
 
       expect(await groupPool.owner()).to.equal(owner.address);
@@ -60,7 +66,9 @@ describe("GroupPool", function () {
         groupName,
         paymentWindowDuration,
         minContribution,
-        maxMembers
+        maxMembers,
+        lockPeriodDuration,
+        systemTreasury
       );
 
       await expect(
@@ -70,7 +78,9 @@ describe("GroupPool", function () {
           "Another Group",
           paymentWindowDuration,
           minContribution,
-          maxMembers
+          maxMembers,
+          lockPeriodDuration,
+          systemTreasury
         )
       ).to.be.revertedWith("Already initialized");
     });
@@ -85,7 +95,9 @@ describe("GroupPool", function () {
           groupName,
           paymentWindowDuration,
           minContribution,
-          maxMembers
+          maxMembers,
+          lockPeriodDuration,
+          systemTreasury
         )
       ).to.be.revertedWith("Invalid owner");
     });
@@ -100,7 +112,9 @@ describe("GroupPool", function () {
           groupName,
           paymentWindowDuration,
           minContribution,
-          maxMembers
+          maxMembers,
+          lockPeriodDuration,
+          systemTreasury
         )
       ).to.be.revertedWith("Invalid manager");
     });
@@ -115,7 +129,9 @@ describe("GroupPool", function () {
           groupName,
           0,
           minContribution,
-          maxMembers
+          maxMembers,
+          lockPeriodDuration,
+          systemTreasury
         )
       ).to.be.revertedWith("Invalid payment window duration");
     });
@@ -128,7 +144,9 @@ describe("GroupPool", function () {
         groupName,
         paymentWindowDuration,
         minContribution,
-        maxMembers
+        maxMembers,
+        lockPeriodDuration,
+        systemTreasury
       );
 
       const currentWindow = await newPool.currentWindowNumber();
@@ -150,7 +168,9 @@ describe("GroupPool", function () {
         groupName,
         paymentWindowDuration,
         minContribution,
-        maxMembers
+        maxMembers,
+        lockPeriodDuration,
+        systemTreasury
       )).to.emit(newPool, "GroupPoolInitialized")
         .withArgs(owner.address, user1.address);
     });

@@ -21,6 +21,9 @@ contract GroupPool is ReentrancyGuard, Ownable {
         bool isCompleted;
         mapping(address => uint256) memberContributions;
         mapping(address => mapping(address => uint256)) tokenContributions; // member => token => amount
+        mapping(address => bool) memberParticipated; // Track who contributed this round
+        address[] contributingMembers; // List of members who contributed this round
+        uint256 participantCount; // Number of members who contributed
     }
 
     // Events
@@ -55,6 +58,16 @@ contract GroupPool is ReentrancyGuard, Ownable {
         uint256 timestamp
     );
     event GroupCompleted(uint256 timestamp);
+    event MemberExcludedFromInterest(
+        address indexed member,
+        uint256 indexed windowNumber,
+        string reason
+    );
+    event InterestDistributionCalculated(
+        uint256 indexed windowNumber,
+        uint256 totalInterest,
+        uint256 participantCount
+    );
 
     // Enums
     enum GroupStatus { Active, Completed, Cancelled }
@@ -168,7 +181,10 @@ contract GroupPool is ReentrancyGuard, Ownable {
      */
     receive() external payable {
         if (msg.value > 0) {
-            contribute();
+            // If sender is the Aave pool, don't treat as contribution
+            if (msg.sender != aavePool) {
+                contribute();
+            }
         }
     }
 
@@ -182,6 +198,13 @@ contract GroupPool is ReentrancyGuard, Ownable {
         PaymentWindow storage currentWindow = paymentWindows[currentWindowNumber];
         require(currentWindow.isActive, "Payment window not active");
         require(block.timestamp <= currentWindow.endTime, "Payment window expired");
+
+        // Track participation for interest distribution
+        if (!currentWindow.memberParticipated[msg.sender]) {
+            currentWindow.memberParticipated[msg.sender] = true;
+            currentWindow.contributingMembers.push(msg.sender);
+            currentWindow.participantCount++;
+        }
 
         // Update contributions
         currentWindow.memberContributions[msg.sender] += msg.value;
@@ -226,6 +249,13 @@ contract GroupPool is ReentrancyGuard, Ownable {
             token.transferFrom(msg.sender, address(this), amount),
             "Token transfer failed"
         );
+
+        // Track participation for interest distribution
+        if (!currentWindow.memberParticipated[msg.sender]) {
+            currentWindow.memberParticipated[msg.sender] = true;
+            currentWindow.contributingMembers.push(msg.sender);
+            currentWindow.participantCount++;
+        }
 
         // Update contributions
         currentWindow.tokenContributions[msg.sender][tokenAddress] += amount;
@@ -423,6 +453,58 @@ contract GroupPool is ReentrancyGuard, Ownable {
     }
 
     /**
+     * @dev Get participating members for a specific payment window
+     * @param windowNumber Window number to query
+     * @return Array of members who contributed in this window
+     */
+    function getWindowParticipants(uint256 windowNumber)
+        external
+        view
+        validPaymentWindow(windowNumber)
+        returns (address[] memory)
+    {
+        return paymentWindows[windowNumber].contributingMembers;
+    }
+
+    /**
+     * @dev Check if member participated in a specific window
+     * @param member Member address
+     * @param windowNumber Window number
+     * @return True if member contributed in this window
+     */
+    function didMemberParticipate(address member, uint256 windowNumber)
+        external
+        view
+        validPaymentWindow(windowNumber)
+        returns (bool)
+    {
+        return paymentWindows[windowNumber].memberParticipated[member];
+    }
+
+    /**
+     * @dev Get participation statistics for a window
+     * @param windowNumber Window number
+     * @return participantCount Number of members who contributed
+     * @return totalMembers Total number of group members
+     * @return participationRate Percentage of members who contributed (scaled by 100)
+     */
+    function getWindowParticipationStats(uint256 windowNumber)
+        external
+        view
+        validPaymentWindow(windowNumber)
+        returns (uint256 participantCount, uint256 totalMembers, uint256 participationRate)
+    {
+        participantCount = paymentWindows[windowNumber].participantCount;
+        totalMembers = groupMembers.length;
+
+        if (totalMembers > 0) {
+            participationRate = (participantCount * 10000) / totalMembers; // Scaled by 10000 for 2 decimal precision
+        } else {
+            participationRate = 0;
+        }
+    }
+
+    /**
      * @dev Get supported tokens
      * @return Array of supported token addresses
      */
@@ -539,12 +621,23 @@ contract GroupPool is ReentrancyGuard, Ownable {
         }
 
         // Supply to Aave - this pool receives aTokens
-        IAavePool(aavePool).supply(
-            asset,
-            amount,
-            address(this), // This pool receives the aTokens
-            0 // referral code
-        );
+        if (asset == address(0)) {
+            // For ETH, send value with the call
+            IAavePool(aavePool).supply{value: amount}(
+                asset,
+                amount,
+                address(this), // This pool receives the aTokens
+                0 // referral code
+            );
+        } else {
+            // For tokens, no value needed
+            IAavePool(aavePool).supply(
+                asset,
+                amount,
+                address(this), // This pool receives the aTokens
+                0 // referral code
+            );
+        }
 
         // Track supplied amount
         suppliedToAave[asset] += amount;
@@ -611,6 +704,9 @@ contract GroupPool is ReentrancyGuard, Ownable {
         // Get total aToken balance (principal + interest)
         uint256 totalATokenBalance = IAToken(aToken).balanceOf(address(this));
         require(totalATokenBalance > 0, "No aToken balance");
+
+        // Approve aavePool to spend aTokens for withdrawal
+        IERC20(aToken).approve(aavePool, totalATokenBalance);
 
         // Withdraw all funds from Aave
         uint256 withdrawnAmount = IAavePool(aavePool).withdraw(

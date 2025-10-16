@@ -999,6 +999,439 @@ const savingsController = {
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
+  },
+
+  // ============================================
+  // PERSONAL SAVINGS LOCK FUNCTIONALITY
+  // ============================================
+
+  // Create a new savings lock
+  async createSavingsLock(req, res) {
+    try {
+      const { validationResult } = require('express-validator');
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      const { walletAddress, asset, assetSymbol, amount, lockPeriodDays, autoWithdraw } = req.body;
+      const userId = req.user.userId;
+
+      console.log('Creating savings lock', { userId, walletAddress, asset, amount });
+
+      const savingsService = require('../services/savingsService');
+
+      if (!savingsService.isInitialized) {
+        await savingsService.initialize();
+      }
+
+      const result = await savingsService.createSavingsLock({
+        userId,
+        walletAddress,
+        asset,
+        assetSymbol,
+        amount,
+        lockPeriodDays,
+        autoWithdraw
+      });
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to create savings lock',
+          error: result.error
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'Savings lock created successfully',
+        data: {
+          savingsLock: result.savingsLock,
+          txHash: result.txHash
+        }
+      });
+
+    } catch (error) {
+      console.error('Error creating savings lock', {
+        userId: req.user?.userId,
+        error: error.message,
+        stack: error.stack
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get user's active savings locks
+  async getUserActiveLocks(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      console.log('Getting user active locks', { userId });
+
+      const savingsService = require('../services/savingsService');
+
+      if (!savingsService.isInitialized) {
+        await savingsService.initialize();
+      }
+
+      const result = await savingsService.getUserActiveLocks(userId);
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to get active locks',
+          error: result.error
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Active locks retrieved successfully',
+        data: {
+          locks: result.locks
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting user active locks', {
+        userId: req.user?.userId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get user's savings lock history
+  async getUserSavingsLockHistory(req, res) {
+    try {
+      const userId = req.user.userId;
+      const limit = parseInt(req.query.limit) || 20;
+
+      console.log('Getting user savings lock history', { userId, limit });
+
+      const savingsService = require('../services/savingsService');
+
+      if (!savingsService.isInitialized) {
+        await savingsService.initialize();
+      }
+
+      const result = await savingsService.getUserSavingsHistory(userId, limit);
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to get savings history',
+          error: result.error
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Savings lock history retrieved successfully',
+        data: {
+          history: result.history
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting user savings lock history', {
+        userId: req.user?.userId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get savings lock details by ID
+  async getSavingsLockDetails(req, res) {
+    try {
+      const { lockId } = req.params;
+      const userId = req.user.userId;
+
+      console.log('Getting savings lock details', { userId, lockId });
+
+      const SavingsLock = require('../models/SavingsLock');
+      const lock = await SavingsLock.findOne({ _id: lockId, userId });
+
+      if (!lock) {
+        return res.status(404).json({
+          success: false,
+          message: 'Savings lock not found'
+        });
+      }
+
+      // Update yield if it's an active lock
+      if (lock.status === 'active') {
+        try {
+          const savingsService = require('../services/savingsService');
+
+          if (!savingsService.isInitialized) {
+            await savingsService.initialize();
+          }
+
+          await savingsService.updateLockYield(lock);
+          // Refresh the lock to get updated yield
+          await lock.reload();
+        } catch (error) {
+          console.warn('Failed to update lock yield', { lockId, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: 'Savings lock details retrieved successfully',
+        data: {
+          lock
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting savings lock details', {
+        userId: req.user?.userId,
+        lockId: req.params.lockId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Update auto-withdrawal settings for a savings lock
+  async updateAutoWithdrawSettings(req, res) {
+    try {
+      const { validationResult } = require('express-validator');
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      const { lockId } = req.params;
+      const { autoWithdraw } = req.body;
+      const userId = req.user.userId;
+
+      console.log('Updating auto-withdraw settings', { userId, lockId, autoWithdraw });
+
+      const SavingsLock = require('../models/SavingsLock');
+      const lock = await SavingsLock.findOne({ _id: lockId, userId });
+
+      if (!lock) {
+        return res.status(404).json({
+          success: false,
+          message: 'Savings lock not found'
+        });
+      }
+
+      if (lock.status !== 'active') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot update settings for non-active lock'
+        });
+      }
+
+      lock.autoWithdraw = autoWithdraw;
+      await lock.save();
+
+      res.json({
+        success: true,
+        message: 'Auto-withdraw settings updated successfully',
+        data: {
+          lock
+        }
+      });
+
+    } catch (error) {
+      console.error('Error updating auto-withdraw settings', {
+        userId: req.user?.userId,
+        lockId: req.params.lockId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Manually withdraw from savings (for expired locks)
+  async withdrawFromSavingsLock(req, res) {
+    try {
+      const { validationResult } = require('express-validator');
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      const { lockId } = req.params;
+      const { destination = 'main_wallet' } = req.body; // 'main_wallet' or 'relock'
+      const userId = req.user.userId;
+
+      console.log('Manual withdrawal from savings lock', { userId, lockId, destination });
+
+      const SavingsLock = require('../models/SavingsLock');
+      const lock = await SavingsLock.findOne({ _id: lockId, userId });
+
+      if (!lock) {
+        return res.status(404).json({
+          success: false,
+          message: 'Savings lock not found'
+        });
+      }
+
+      if (lock.status !== 'expired' && !lock.isExpired()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Lock has not expired yet'
+        });
+      }
+
+      if (lock.processed) {
+        return res.status(400).json({
+          success: false,
+          message: 'Lock has already been processed'
+        });
+      }
+
+      // Process the expired lock
+      const savingsService = require('../services/savingsService');
+
+      if (!savingsService.isInitialized) {
+        await savingsService.initialize();
+      }
+
+      await savingsService.processExpiredLock(lock);
+
+      res.json({
+        success: true,
+        message: 'Withdrawal processed successfully',
+        data: {
+          lock: await SavingsLock.findById(lockId) // Return updated lock
+        }
+      });
+
+    } catch (error) {
+      console.error('Error processing manual withdrawal', {
+        userId: req.user?.userId,
+        lockId: req.params.lockId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to process withdrawal',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get savings lock statistics for user
+  async getSavingsLockStats(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      console.log('Getting savings lock statistics', { userId });
+
+      const SavingsLock = require('../models/SavingsLock');
+      const stats = await SavingsLock.getSavingsStats(userId);
+
+      res.json({
+        success: true,
+        message: 'Savings lock statistics retrieved successfully',
+        data: {
+          stats
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting savings lock statistics', {
+        userId: req.user?.userId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get current savings yields and rates
+  async getSavingsRates(req, res) {
+    try {
+      // This would typically fetch current Aave rates
+      // For now, return mock data
+      const rates = {
+        ETH: {
+          apy: 3.25,
+          symbol: 'ETH',
+          name: 'Ethereum'
+        },
+        USDC: {
+          apy: 4.15,
+          symbol: 'USDC',
+          name: 'USD Coin'
+        },
+        USDT: {
+          apy: 4.08,
+          symbol: 'USDT',
+          name: 'Tether USD'
+        }
+      };
+
+      res.json({
+        success: true,
+        message: 'Savings rates retrieved successfully',
+        data: {
+          rates,
+          lastUpdated: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting savings rates', {
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
   }
 };
 

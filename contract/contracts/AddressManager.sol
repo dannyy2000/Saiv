@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "./UserWallet.sol";
-import "./GroupPool.sol";
+import {UserWallet} from "./UserWallet.sol";
+import {GroupPool} from "./GroupPool.sol";
 
 contract AddressManager {
     // UserWallet implementation contract

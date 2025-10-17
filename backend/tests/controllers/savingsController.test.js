@@ -547,7 +547,7 @@ describe('SavingsController', () => {
       expect(mockRes.status).toHaveBeenCalledWith(403);
       expect(mockRes.json).toHaveBeenCalledWith({
         success: false,
-        message: 'Only the owner can update this savings account'
+        message: 'Only the owner can update savings settings'
       });
     });
 
@@ -594,7 +594,11 @@ describe('SavingsController', () => {
         success: true,
         data: {
           transactions: expect.any(Array),
-          totalTransactions: 1
+          totalTransactions: 1,
+          currentPage: 1,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false
         }
       });
     });

@@ -41,6 +41,17 @@ describe('AuthController', () => {
       json: jest.fn()
     };
 
+    // Set up environment variable mock
+    process.env.NODE_ENV = 'test';
+
+    // Setup default mocks
+    gaslessService.isReady = jest.fn();
+    gaslessService.createEmailUserWalletsGasless = jest.fn();
+    gaslessService.createEOAUserWalletsGasless = jest.fn();
+    contractService.validateAddress = jest.fn();
+    contractService.createEmailUserWallets = jest.fn();
+    contractService.createEOAUserWallets = jest.fn();
+
     // Clear all mocks
     jest.clearAllMocks();
   });
@@ -149,7 +160,8 @@ describe('AuthController', () => {
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.json).toHaveBeenCalledWith({
         success: false,
-        message: 'Registration failed'
+        message: 'Registration failed',
+        error: 'Internal server error'
       });
     });
   });
@@ -168,7 +180,7 @@ describe('AuthController', () => {
       User.findOne.mockResolvedValue(null);
       contractService.validateAddress.mockReturnValue(true);
       gaslessService.isReady.mockReturnValue(true);
-      gaslessService.createEOAUserWalletsGasless = jest.fn().mockResolvedValue(mockWallets);
+      gaslessService.createEOAUserWalletsGasless.mockResolvedValue(mockWallets);
 
       const mockUserInstance = {
         ...mockUser,
@@ -194,6 +206,7 @@ describe('AuthController', () => {
       mockReq.body = { eoaAddress: mockEOAAddress };
 
       User.findOne.mockResolvedValue(mockUser);
+      contractService.validateAddress.mockReturnValue(true);
       jwt.sign.mockReturnValue('mock-jwt-token');
 
       await authController.registerWithWallet(mockReq, mockRes);
@@ -246,7 +259,7 @@ describe('AuthController', () => {
       User.findOne.mockResolvedValue(null);
       contractService.validateAddress.mockReturnValue(true);
       gaslessService.isReady.mockReturnValue(false);
-      contractService.createEOAUserWallets = jest.fn().mockResolvedValue(mockWallets);
+      contractService.createEOAUserWallets.mockResolvedValue(mockWallets);
 
       const mockUserInstance = {
         ...mockUser,
@@ -307,8 +320,9 @@ describe('AuthController', () => {
     });
 
     it('should handle database errors', async () => {
+      const mockPopulate = jest.fn().mockRejectedValue(new Error('Database error'));
       User.findById.mockReturnValue({
-        populate: jest.fn().mockRejectedValue(new Error('Database error'))
+        populate: mockPopulate
       });
 
       await authController.getProfile(mockReq, mockRes);

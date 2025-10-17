@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import { ConnectButton } from 'thirdweb/react';
 import { inAppWallet, createWallet } from 'thirdweb/wallets';
 import { createThirdwebClient } from "thirdweb";
-import { ethereum,sepolia } from 'thirdweb/chains';
+import { defineChain } from 'thirdweb/chains';
 import { cn } from '@/lib/utils';
 
 const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
@@ -16,6 +16,24 @@ if (!clientId) {
 
 const client = createThirdwebClient({
   clientId: clientId ?? '',
+});
+
+// Define Lisk Sepolia chain
+const liskSepolia = defineChain({
+  id: 4202,
+  name: 'Lisk Sepolia',
+  nativeCurrency: {
+    name: 'Lisk',
+    symbol: 'LSK',
+    decimals: 18,
+  },
+  rpc: 'https://rpc.sepolia-api.lisk.com',
+  blockExplorers: [
+    {
+      name: 'Lisk Sepolia Explorer',
+      url: 'https://sepolia-blockscout.lisk.com',
+    },
+  ],
 });
 
 const wallets = [
@@ -42,7 +60,7 @@ export function ConnectWalletButton({ label = 'Sign In / Connect', className }: 
       <ConnectButton
         client={client}
         accountAbstraction={{
-          chain: ethereum,
+          chain: liskSepolia,
           sponsorGas: true,
         }}
         connectButton={{ label }}

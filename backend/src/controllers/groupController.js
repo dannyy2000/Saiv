@@ -3,7 +3,6 @@ const User = require('../models/User');
 const contractService = require('../services/contractService');
 const gaslessService = require('../services/gaslessService');
 const { ethers } = require('ethers');
-const { v4: uuidv4 } = require('uuid');
 
 
 

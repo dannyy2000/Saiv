@@ -6,6 +6,7 @@ router.use('/groups', require('./groups'));
 router.use('/wallet', require('./wallet'));
 router.use('/savings', require('./savings'));
 router.use('/gas', require('./gas'));
+router.use('/webhooks', require('./webhooks'));
 
 router.get('/', (req, res) => {
   res.json({
@@ -58,6 +59,14 @@ router.get('/', (req, res) => {
         'GET /api/gas/status - Check if gasless transactions are enabled',
         'GET /api/gas/backend-wallet - View backend wallet balance (admin)',
         'GET /api/gas/estimates - Get gas cost estimates'
+      ],
+      webhooks: [
+        'GET /api/webhooks/health - Check webhook service health',
+        'GET /api/webhooks/status - Get webhook service status (admin)',
+        'POST /api/webhooks/start - Start listening to contract events (admin)',
+        'POST /api/webhooks/stop - Stop listening to contract events (admin)',
+        'GET /api/webhooks/logs - Get blockchain event logs (admin)',
+        'POST /api/webhooks/trigger - Trigger test webhook (dev only)'
       ],
       health: [
         'GET /api/health'

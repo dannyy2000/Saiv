@@ -1,5 +1,5 @@
 # Environment variables (CRITICAL - NEVER COMMIT)
-.env
+contract/.env
 .env.local
 .env.*.local
 **/.env

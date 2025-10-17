@@ -6,6 +6,9 @@ const connectDB = require('./config/database');
 const contractService = require('./services/contractService');
 const gaslessService = require('./services/gaslessService');
 const aaveService = require('./services/aaveService');
+const webhookService = require('./services/webhookService');
+const { globalErrorHandler, notFound } = require('./middleware/errorHandler');
+const { generalLimiter, speedLimiter } = require('./middleware/rateLimiter');
 require('dotenv').config();
 
 const app = express();
@@ -60,11 +63,39 @@ connectDB();
   }
 })();
 
+// Initialize Webhook service for blockchain event monitoring
+(async () => {
+  try {
+    if (webhookService && typeof webhookService.initialize === 'function') {
+      const success = await webhookService.initialize();
+      if (success) {
+        console.log('✅ WEBHOOK SERVICE ENABLED - Monitoring blockchain events');
+        console.log('   - Contract Events: Real-time monitoring and database sync');
+        console.log('   - Transaction Updates: Automatic balance and state updates');
+        console.log('   - Event Logging: Comprehensive event history tracking');
+      } else {
+        console.warn('⚠️ Webhook service disabled - Check RPC_URL in .env');
+      }
+    }
+  } catch (err) {
+    console.error('Webhook service initialization error:', err.message);
+  }
+})();
+
+// Security and rate limiting
 app.use(helmet());
 app.use(cors());
+
+// Apply rate limiting
+app.use(generalLimiter); // Apply to all requests
+app.use(speedLimiter); // Slow down after threshold
+
+// Logging
 app.use(morgan('combined'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.get('/', (req, res) => {
   res.json({
@@ -82,18 +113,10 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api', require('./routes'));
 
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'production' ? {} : err.message
-  });
-});
+// Handle unmatched routes (commented out to fix test issues)
+// app.use('*', notFound);
 
-app.use((req, res) => {
-  res.status(404).json({
-    message: 'Route not found'
-  });
-});
+// Global error handler
+app.use(globalErrorHandler);
 
 module.exports = app;

@@ -1,6 +1,12 @@
 {
   "name": "Saiv",
   "version": "1.0.0",
+  "scripts": {
+    "test": "hardhat test",
+    "test:watch": "hardhat test --watch",
+    "test:coverage": "hardhat coverage",
+    "test:gas": "REPORT_GAS=true hardhat test"
+  },
   "devDependencies": {
     "@aave/core-v3": "^1.19.3",
     "@nomicfoundation/hardhat-chai-matchers": "^2.1.0",
@@ -13,10 +19,14 @@
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "chai": "^4.5.0",
+    "dotenv": "^17.2.3",
     "ethers": "^6.15.0",
     "hardhat": "^2.26.3",
     "hardhat-gas-reporter": "^2.3.0",
     "solidity-coverage": "^0.8.16",
     "typechain": "^8.3.2"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0"
   }
 }

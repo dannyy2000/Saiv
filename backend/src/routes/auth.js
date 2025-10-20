@@ -36,6 +36,12 @@ router.post('/register/email', createAccountLimiter, validateEmailRegistration, 
 
 router.post('/register/wallet', createAccountLimiter, validateWalletRegistration, authController.registerWithWallet);
 
+// Development-only endpoints without rate limiting
+if (process.env.NODE_ENV === 'development') {
+  router.post('/dev/register/email', validateEmailRegistration, authController.registerWithEmail);
+  router.post('/dev/register/wallet', validateWalletRegistration, authController.registerWithWallet);
+}
+
 router.get('/profile', authMiddleware, authController.getProfile);
 
 router.put('/balance', authMiddleware, validateBalanceUpdate, authController.updateBalance);

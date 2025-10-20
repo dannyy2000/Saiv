@@ -1,15 +1,9 @@
 'use client';
 
-import type { ComponentType, SVGProps } from 'react';
+import type { ComponentType, ReactElement, SVGProps } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  GaugeCircle,
-  LayoutDashboard,
-  PiggyBank,
-  Users,
-  Wallet,
-} from 'lucide-react';
+import { LayoutDashboard, PiggyBank, Users, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -44,15 +38,9 @@ const navItems: NavItem[] = [
     description: 'Track personal and group goals',
     icon: PiggyBank,
   },
-  {
-    href: '/admin/gas',
-    label: 'Gas Ops',
-    description: 'Monitor backend wallet and gas usage',
-    icon: GaugeCircle,
-  },
 ];
 
-export function AppSidebar(): JSX.Element {
+export function AppSidebar(): ReactElement {
   const pathname = usePathname();
 
   return (

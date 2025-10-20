@@ -7,7 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { Resolver } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ChevronDown, ChevronUp, PlusCircle, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, PlusCircle, Users, ArrowRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +37,7 @@ const createGroupSchema = z.object({
   paymentWindowDuration: z.number().min(1, 'Payment window must be at least 1 day'),
   minContribution: z.string().optional(),
   maxMembers: z.number().min(2, 'Need at least 2 members').max(100, 'Keep pods manageable'),
-  currency: z.string().default('ETH'),
+  currency: z.string().default('USDC'),
 });
 
 type CreateGroupFormValues = z.infer<typeof createGroupSchema>;
@@ -45,6 +46,7 @@ export default function GroupsPage(): ReactElement {
   const { isAuthenticated, user } = useAuth();
   const currentUserId = user?._id ?? user?.id ?? '';
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
   const groupForm = useForm<CreateGroupFormValues>({
@@ -59,7 +61,7 @@ export default function GroupsPage(): ReactElement {
       paymentWindowDuration: 30,
       minContribution: '0.1',
       maxMembers: 12,
-      currency: 'ETH',
+      currency: 'USDC',
     },
   });
 
@@ -193,6 +195,10 @@ export default function GroupsPage(): ReactElement {
     setSelectedGroupId(groupId);
   };
 
+  const navigateToGroupDashboard = (groupId: string) => {
+    router.push(`/groups/${groupId}/dashboard`);
+  };
+
   const paymentWindowSummary = useMemo(() => {
     return (paymentWindows ?? []).map((window) => ({
       windowNumber: window.windowNumber ?? 0,
@@ -206,13 +212,26 @@ export default function GroupsPage(): ReactElement {
 
   return (
     <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-50">Groups</h1>
+          <p className="text-slate-400 mt-1">
+            Join or create savings groups for coordinated investments
+          </p>
+        </div>
+        <Badge variant="outline" className="text-cyan-400">
+          {groups?.length || 0} active pods
+        </Badge>
+      </div>
+
       <section className="grid gap-5 md:grid-cols-[1fr,0.8fr]">
         <Card className="border-white/10">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Users className="h-5 w-5 text-cyan-300" /> Active pods
+              <Users className="h-5 w-5 text-cyan-300" /> Available Groups
             </CardTitle>
-            <CardDescription>Groups you can join or manage—gasless deployments handled by Saiv.</CardDescription>
+            <CardDescription>Discover and join savings groups or manage your existing memberships.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {isGroupsLoading ? (
@@ -245,18 +264,28 @@ export default function GroupsPage(): ReactElement {
                         <p className="text-sm text-slate-400">{group.description ?? 'Coordinated savings pod.'}</p>
                       </div>
                       <Badge variant={alreadyMember ? 'success' : 'outline'}>
-                        {memberCount} members · min {minContribution} {group.poolSettings?.currency ?? 'ETH'}
+                        {memberCount} members · min {minContribution} {group.poolSettings?.currency ?? 'USDC'}
                       </Badge>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
                       <Button
-                        variant="primary"
+                        variant={alreadyMember ? "outline" : "primary"}
                         size="sm"
                         onClick={() => onJoinOrLeave(group._id ?? group.id ?? '', alreadyMember)}
                         isLoading={joinMutation.isPending || leaveMutation.isPending}
                       >
-                        {alreadyMember ? 'Leave group' : 'Join group'}
+                        {alreadyMember ? 'Leave Group' : 'Join Group'}
                       </Button>
+                      {alreadyMember && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => navigateToGroupDashboard(group._id ?? group.id ?? '')}
+                          leftIcon={<ArrowRight className="h-4 w-4" />}
+                        >
+                          Dashboard
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -265,7 +294,7 @@ export default function GroupsPage(): ReactElement {
                         }
                         leftIcon={selectedGroupId === (group._id ?? group.id ?? '') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       >
-                        {active ? 'Hide details' : 'View details'}
+                        {active ? 'Hide Details' : 'View Details'}
                       </Button>
                     </div>
                     {active ? (
@@ -281,7 +310,7 @@ export default function GroupsPage(): ReactElement {
                               </span>
                               with min contribution of
                               <span className="mx-1 font-semibold text-cyan-200">{minContribution}</span>
-                              {group.poolSettings?.currency ?? 'ETH'}.
+                              {group.poolSettings?.currency ?? 'USDC'}.
                             </p>
                             <div className="space-y-2 text-sm text-slate-300">
                               <p className="text-xs uppercase tracking-wide text-slate-500">Members</p>
@@ -308,7 +337,7 @@ export default function GroupsPage(): ReactElement {
                                     </div>
                                     <div className="flex items-center gap-3">
                                       <Badge variant={window.status === 'completed' ? 'success' : 'outline'}>{window.status}</Badge>
-                                      <span className="text-xs text-cyan-200">{window.totalContributions} ETH</span>
+                                      <span className="text-xs text-cyan-200">{window.totalContributions} USDC</span>
                                       {isAdmin && window.status !== 'completed' ? (
                                         <Button
                                           variant="ghost"
@@ -349,7 +378,11 @@ export default function GroupsPage(): ReactElement {
                 );
               })
             ) : (
-              <p className="text-sm text-slate-400">Create the first group to start coordinating contributions.</p>
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                <p className="text-sm text-slate-400 mb-2">No groups available yet</p>
+                <p className="text-xs text-slate-500">Be the first to create a savings group!</p>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -357,9 +390,9 @@ export default function GroupsPage(): ReactElement {
         <Card className="border-white/10">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              <PlusCircle className="h-5 w-5 text-cyan-300" /> Spin up a new pod
+              <PlusCircle className="h-5 w-5 text-cyan-300" /> Create New Group
             </CardTitle>
-            <CardDescription>Deploy a new savings group in a single action—gasless for every member.</CardDescription>
+            <CardDescription>Set up a new savings group with custom contribution schedules and member limits.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={groupForm.handleSubmit(onCreateGroup)}>
@@ -398,18 +431,18 @@ export default function GroupsPage(): ReactElement {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="currency">Currency</Label>
-                  <Input id="currency" placeholder="ETH" {...groupForm.register('currency')} />
+                  <Input id="currency" placeholder="USDC" {...groupForm.register('currency')} />
                 </div>
               </div>
 
               <Button
                 type="submit"
                 variant="primary"
-                size="md"
+                className="w-full"
                 leftIcon={<PlusCircle className="h-4 w-4" />}
                 isLoading={createMutation.isPending}
               >
-                Launch group
+                Create Group
               </Button>
             </form>
           </CardContent>

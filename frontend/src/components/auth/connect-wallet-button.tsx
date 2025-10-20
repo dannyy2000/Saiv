@@ -1,72 +1,57 @@
 'use client';
 
-import type { ReactElement } from 'react';
-import { ConnectButton } from 'thirdweb/react';
-import { inAppWallet, createWallet } from 'thirdweb/wallets';
-import { createThirdwebClient } from "thirdweb";
-import { defineChain } from 'thirdweb/chains';
+import type { ReactElement, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { LogIn } from 'lucide-react';
+import { Button, type ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
-
-if (!clientId) {
-  // eslint-disable-next-line no-console
-  console.warn('NEXT_PUBLIC_THIRDWEB_CLIENT_ID is not set. Thirdweb features will not work correctly.');
-}
-
-const client = createThirdwebClient({
-  clientId: clientId ?? '',
-});
-
-// Define Lisk Sepolia chain
-const liskSepolia = defineChain({
-  id: 4202,
-  name: 'Lisk Sepolia',
-  nativeCurrency: {
-    name: 'Lisk',
-    symbol: 'LSK',
-    decimals: 18,
-  },
-  rpc: 'https://rpc.sepolia-api.lisk.com',
-  blockExplorers: [
-    {
-      name: 'Lisk Sepolia Explorer',
-      url: 'https://sepolia-blockscout.lisk.com',
-    },
-  ],
-});
-
-const wallets = [
-  inAppWallet({
-    auth: {
-      options: ['google', 'email'],
-    },
-  }),
-  createWallet('io.metamask'),
-  createWallet('com.coinbase.wallet'),
-  createWallet('me.rainbow'),
-  createWallet('io.rabby'),
-  createWallet('io.zerion.wallet'),
-];
+import { MagicAuthModal } from './magic-auth-modal';
+import { useAuth } from '@/providers/auth-context';
 
 interface ConnectWalletButtonProps {
   label?: string;
   className?: string;
+  variant?: ButtonProps['variant'];
+  size?: ButtonProps['size'];
+  icon?: ReactNode;
 }
 
-export function ConnectWalletButton({ label = 'Sign In / Connect', className }: ConnectWalletButtonProps): ReactElement {
+export function ConnectWalletButton({
+  label = 'Sign In',
+  className,
+  variant = 'primary',
+  size = 'md',
+  icon,
+}: ConnectWalletButtonProps): ReactElement {
+  const { isLoading, isAuthenticated } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setIsModalOpen(false);
+    }
+  }, [isAuthenticated]);
+
   return (
-    <div className={cn('inline-flex rounded-xl bg-cyan-500/90 p-[1px] shadow-lg shadow-cyan-500/30 transition hover:shadow-cyan-400/40', className)}>
-      <ConnectButton
-        client={client}
-        accountAbstraction={{
-          chain: liskSepolia,
-          sponsorGas: true,
+    <>
+      <Button
+        variant={variant}
+        size={size}
+        className={cn('rounded-xl', className)}
+        onClick={() => {
+          if (!isLoading) {
+            setIsModalOpen(true);
+          }
         }}
-        connectButton={{ label }}
-        connectModal={{ size: 'compact' }}
-        wallets={wallets}
+        leftIcon={icon ?? <LogIn className="h-4 w-4" />}
+        isLoading={isLoading}
+      >
+        {label}
+      </Button>
+      <MagicAuthModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
       />
-    </div>
+    </>
   );
 }

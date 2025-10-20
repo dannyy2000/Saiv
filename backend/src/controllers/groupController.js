@@ -82,7 +82,7 @@ const groupController = {
         owner: userId,
         members: [{
           user: userId,
-          role: 'admin',
+          role: 'member',
           joinedAt: new Date()
         }],
         paymentWindowDuration: windowDuration,
@@ -560,10 +560,12 @@ const groupController = {
         });
       }
 
-      if (group.owner.toString() !== userId) {
+      // Check if user is a member of the group (all members can update description)
+      const isMember = group.members.some(member => member.user.toString() === userId);
+      if (!isMember) {
         return res.status(403).json({
           success: false,
-          message: 'Only group owner can update group settings'
+          message: 'Only group members can update group settings'
         });
       }
 
@@ -615,13 +617,12 @@ const groupController = {
         });
       }
 
-      const isOwnerOrAdmin = group.owner.toString() === userId.toString() ||
-        group.members.find(m => m.user.toString() === userId.toString() && m.role === 'admin');
-
-      if (!isOwnerOrAdmin) {
+      // Check if user is a member of the group
+      const isMember = group.members.some(member => member.user.toString() === userId);
+      if (!isMember) {
         return res.status(403).json({
           success: false,
-          message: 'Only group owner or admin can create payment windows'
+          message: 'Only group members can create payment windows'
         });
       }
 
@@ -693,13 +694,12 @@ const groupController = {
         });
       }
 
-      const isOwnerOrAdmin = group.owner.toString() === userId.toString() ||
-        group.members.find(m => m.user.toString() === userId.toString() && m.role === 'admin');
-
-      if (!isOwnerOrAdmin) {
+      // Check if user is a member of the group
+      const isMember = group.members.some(member => member.user.toString() === userId);
+      if (!isMember) {
         return res.status(403).json({
           success: false,
-          message: 'Only group owner or admin can complete payment windows'
+          message: 'Only group members can complete payment windows'
         });
       }
 
@@ -1277,16 +1277,8 @@ const groupController = {
         });
       }
 
-      // Only allow users to see their own contributions unless they are admin/owner
-      const isOwnerOrAdmin = group.owner.toString() === requestUserId ||
-        group.members.find(m => m.user.toString() === requestUserId && m.role === 'admin');
-
-      if (targetUserId !== requestUserId && !isOwnerOrAdmin) {
-        return res.status(403).json({
-          success: false,
-          message: 'You can only view your own contributions'
-        });
-      }
+      // All group members can view any member's contributions since they're equal
+      // (No restrictions needed as the membership check above is sufficient)
 
       const contributions = [];
       group.paymentWindows.forEach(window => {

@@ -1,210 +1,399 @@
 'use client';
 
-import type { ReactElement, ReactNode } from 'react';
-import { useMemo } from 'react';
+import type { ReactElement } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, Coins, ShieldCheck, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Coins, ShieldCheck, Users, TrendingUp, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { AnalyticsChart } from '@/components/dashboard/analytics-chart';
+import { ActivityFeed, generateSampleActivities } from '@/components/dashboard/activity-feed';
+import { QuickActions } from '@/components/dashboard/quick-actions';
 import { useAuth } from '@/providers/auth-context';
+import { fetchWalletBalance } from '@/services/api/wallet';
 import { fetchGroups } from '@/services/api/groups';
 import { fetchSavings } from '@/services/api/savings';
-import { fetchWalletBalance } from '@/services/api/wallet';
 import type { Group, SavingsGoal, WalletBalance } from '@/types/api';
 import { formatTokenAmount, truncateAddress } from '@/lib/utils';
 
-function StatCard({
-  title,
-  value,
-  description,
-  icon,
-  loading,
-}: {
-  title: string;
-  value: string;
-  description: string;
-  icon: ReactNode;
-  loading?: boolean;
-}): ReactElement {
-  return (
-    <Card className="overflow-hidden border-white/10">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="space-y-1">
-          <CardDescription>{title}</CardDescription>
-          {loading ? <Skeleton className="h-6 w-24" /> : <CardTitle className="text-2xl font-semibold text-slate-50">{value}</CardTitle>}
-        </div>
-        <span className="rounded-xl border border-cyan-400/30 bg-cyan-500/15 p-3 text-cyan-200">{icon}</span>
-      </CardHeader>
-      <CardContent>
-        <p className="text-xs text-slate-400">{description}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function highlightSavingsProgress(savings: SavingsGoal[]): Array<{ name: string; progress: number; target?: string }> {
-  return savings.slice(0, 3).map((goal) => {
-    const target = Number(goal.targetAmount ?? 0);
-    const current = Number(goal.currentAmount ?? 0);
-    const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
-    return {
-      name: goal.name,
-      progress,
-      target: goal.targetAmount,
-    };
-  });
-}
-
 export default function DashboardPage(): ReactElement {
+  const TOKEN_SYMBOL = 'USDC';
   const { isAuthenticated, user } = useAuth();
+  const router = useRouter();
 
-  const {
-    data: walletBalance,
-    isLoading: isWalletLoading,
-  } = useQuery<WalletBalance>({
+  const { data: walletBalance } = useQuery<WalletBalance>({
     queryKey: ['wallet', 'balance'],
     queryFn: fetchWalletBalance,
     enabled: isAuthenticated,
   });
 
-  const {
-    data: groups,
-    isLoading: isGroupsLoading,
-  } = useQuery<Group[]>({
+  const { data: groups } = useQuery<Group[]>({
     queryKey: ['groups', 'list'],
     queryFn: fetchGroups,
     enabled: isAuthenticated,
   });
 
-  const {
-    data: savings,
-    isLoading: isSavingsLoading,
-  } = useQuery<SavingsGoal[]>({
-    queryKey: ['savings', 'list'],
+  const { data: savings } = useQuery<SavingsGoal[]>({
+    queryKey: ['savings', 'all'],
     queryFn: () => fetchSavings('all'),
     enabled: isAuthenticated,
   });
 
-  const savingsHighlights = useMemo(() => highlightSavingsProgress(savings ?? []), [savings]);
-  const mainBalance = formatTokenAmount(walletBalance?.mainWallet?.balance ?? '0', 4);
-  const savingsBalance = formatTokenAmount(walletBalance?.savingsWallet?.balance ?? '0', 4);
+  const mainBalanceValue = Number(
+    walletBalance?.mainWallet?.balance ??
+    walletBalance?.mainWallet?.ethBalance ??
+    0
+  ) || 0;
+  const savingsBalanceValue = Number(
+    walletBalance?.savingsWallet?.balance ??
+    walletBalance?.savingsWallet?.ethBalance ??
+    0
+  ) || 0;
+
+  const mainBalance = formatTokenAmount(mainBalanceValue, 2);
+  const savingsBalance = formatTokenAmount(savingsBalanceValue, 2);
+
+  // Sample data for analytics (replace with real data from API)
+  const activityFeed = useMemo(() => {
+    const items = [] as ReturnType<typeof generateSampleActivities>;
+
+    (savings ?? []).forEach((goal) => {
+      const timestamp = goal.updatedAt ?? goal.createdAt ?? new Date().toISOString();
+      items.push({
+        id: `savings-${goal._id ?? goal.id ?? goal.name}`,
+        type: 'goal_create',
+        title: goal.name,
+        description: `Target ${goal.targetAmount ?? '-'} ${goal.currency ?? TOKEN_SYMBOL} · Current ${goal.currentAmount ?? '0'}`,
+        amount: goal.currentAmount ? `${formatTokenAmount(Number(goal.currentAmount ?? 0), 2)} ${goal.currency ?? TOKEN_SYMBOL}` : undefined,
+        timestamp,
+        status: goal.status === 'completed' ? 'completed' : 'pending',
+      });
+    });
+
+    (groups ?? []).forEach((group) => {
+      const timestamp = group.updatedAt ?? group.createdAt ?? new Date().toISOString();
+      items.push({
+        id: `group-${group._id ?? group.id ?? group.name}`,
+        type: 'group_create',
+        title: group.name,
+        description: group.description ?? 'Savings coordination pod',
+        timestamp,
+        status: 'completed',
+      });
+    });
+
+    return items
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10);
+  }, [groups, savings]);
+
+  const portfolioHistory = useMemo(() => [
+    ...(savings ?? []).map((goal) => {
+      const value = Number(goal.currentAmount ?? 0);
+      const date = goal.updatedAt ?? goal.createdAt ?? new Date().toISOString();
+      return {
+        label: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value,
+        date,
+      };
+    }),
+    {
+      label: 'Current total',
+      value: mainBalanceValue + savingsBalanceValue,
+      date: new Date().toISOString(),
+    },
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()), [savings, mainBalanceValue, savingsBalanceValue]);
+
+  const savingsDistribution = useMemo(() => {
+    if (!savings || savings.length === 0) {
+      return [];
+    }
+
+    return savings
+      .map((goal) => {
+        const value = Number(goal.currentAmount ?? 0);
+        const date = goal.updatedAt ?? goal.createdAt ?? new Date().toISOString();
+        return {
+          label: goal.name,
+          value,
+          date,
+        };
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [savings]);
+
+  const totalBalance = mainBalanceValue + savingsBalanceValue;
+  const totalGroups = groups?.length ?? 0;
+  const totalSavingsGoals = savings?.length ?? 0;
+  const completedGoals = (savings ?? []).filter((goal) => goal.status === 'completed').length;
+  const highlightedGoals = (savings ?? []).slice(0, 3);
+  const highlightedGroups = (groups ?? []).slice(0, 3);
+
+  const scrollToAnalytics = useCallback(() => {
+    const section = document.getElementById('analytics-section');
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          title="Main wallet balance"
-          value={`${mainBalance} ETH`}
-          description={walletBalance?.mainWallet?.address ? `Address ${truncateAddress(walletBalance.mainWallet.address)}` : 'Generated during onboarding'}
-          icon={<Coins className="h-5 w-5" />}
-          loading={isWalletLoading}
-        />
-        <StatCard
-          title="Savings wallet"
-          value={`${savingsBalance} ETH`}
-          description={walletBalance?.savingsWallet?.address ? `Address ${truncateAddress(walletBalance.savingsWallet.address)}` : 'Gasless auto-savings wallet'}
-          icon={<ShieldCheck className="h-5 w-5" />}
-          loading={isWalletLoading}
-        />
-        <StatCard
-          title="Active groups"
-          value={`${groups?.length ?? 0}`}
-          description="Pods you have created or joined"
-          icon={<Users className="h-5 w-5" />}
-          loading={isGroupsLoading}
-        />
-        <StatCard
-          title="Savings goals"
-          value={`${savings?.length ?? 0}`}
-          description="Personal and collaborative goals"
-          icon={<Activity className="h-5 w-5" />}
-          loading={isSavingsLoading}
-        />
-      </section>
+      {/* Welcome Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-50">Welcome back!</h1>
+          <p className="text-slate-400 mt-1">
+            {user?.profile?.name || user?.email || 'User'} • {user?.registrationType?.toUpperCase() || 'EMAIL'} Account
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-cyan-400" />
+          <Badge variant="outline" className="border-cyan-400/40 text-cyan-200">
+            All systems operational
+          </Badge>
+        </div>
+      </div>
 
-      <section className="grid gap-5 lg:grid-cols-2">
-        <Card className="border-white/10">
-          <CardHeader className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">Gasless account snapshot</CardTitle>
-              <CardDescription className="text-sm">Every transaction runs through Saiv&apos;s backend so you never worry about gas.</CardDescription>
-            </div>
-            <Badge variant="success">Live</Badge>
+      {/* Portfolio Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-white/10 bg-slate-900/40">
+          <CardHeader className="pb-2">
+            <CardDescription>Total balance</CardDescription>
+            <CardTitle className="text-3xl font-semibold text-slate-50">
+              {formatTokenAmount(totalBalance, 2)} {TOKEN_SYMBOL}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5 text-sm text-slate-300">
-            <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Registration type</p>
-              <p className="text-base font-semibold text-slate-100">{user?.registrationType?.toUpperCase() ?? 'EMAIL'}</p>
-            </div>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              <li className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-400">Main wallet</p>
-                <p className="font-mono text-sm text-cyan-200">{truncateAddress(walletBalance?.mainWallet?.address)}</p>
-              </li>
-              <li className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
-                <p className="text-xs uppercase tracking-wide text-slate-400">Savings wallet</p>
-                <p className="font-mono text-sm text-cyan-200">{truncateAddress(walletBalance?.savingsWallet?.address)}</p>
-              </li>
-            </ul>
+          <CardContent className="pt-0 text-xs text-slate-400">
+            Combined value across main and savings wallets
           </CardContent>
         </Card>
-
-        <Card className="border-white/10">
-          <CardHeader>
-            <CardTitle className="text-lg">Savings progress</CardTitle>
-            <CardDescription className="text-sm">The first three goals with the greatest traction.</CardDescription>
+        <Card className="border-white/10 bg-slate-900/40">
+          <CardHeader className="pb-2">
+            <CardDescription>Main wallet</CardDescription>
+            <CardTitle className="text-2xl font-semibold text-slate-50">
+              {formatTokenAmount(mainBalanceValue, 2)} {TOKEN_SYMBOL}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {isSavingsLoading ? (
+          <CardContent className="pt-0 text-xs text-slate-400">
+            Primary smart account for contributions
+          </CardContent>
+        </Card>
+        <Card className="border-white/10 bg-slate-900/40">
+          <CardHeader className="pb-2">
+            <CardDescription>Savings wallet</CardDescription>
+            <CardTitle className="text-2xl font-semibold text-slate-50">
+              {formatTokenAmount(savingsBalanceValue, 2)} {TOKEN_SYMBOL}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-xs text-slate-400">
+            Dedicated, gasless savings balance
+          </CardContent>
+        </Card>
+        <Card className="border-white/10 bg-slate-900/40">
+          <CardHeader className="pb-2">
+            <CardDescription>Savings goals</CardDescription>
+            <CardTitle className="text-2xl font-semibold text-slate-50">
+              {totalSavingsGoals}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-xs text-slate-400">
+            {completedGoals} completed · {totalGroups} active groups
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Analytics and Quick Actions */}
+      <div className="grid gap-6 xl:grid-cols-5">
+        <div className="space-y-6 xl:col-span-3">
+          <QuickActions
+            onAddFunds={() => router.push('/wallet?view=transfer')}
+            onWithdraw={() => router.push('/wallet?view=withdraw')}
+            onCreateGroup={() => router.push('/groups?intent=create')}
+            onCreateGoal={() => router.push('/wallet?view=savings')}
+            onViewAnalytics={scrollToAnalytics}
+            onQuickSave={() => router.push('/wallet?view=transfer')}
+          />
+
+          {/* Analytics Charts */}
+          <div id="analytics-section" className="grid gap-4 md:grid-cols-2">
+            <AnalyticsChart
+              title="Portfolio Growth"
+              description="Total balance across main and savings wallets"
+              data={portfolioHistory}
+              valueSuffix={` ${TOKEN_SYMBOL}`}
+            />
+            <AnalyticsChart
+              title="Savings Balances"
+              description="Tracked USDC across your active goals"
+              data={savingsDistribution}
+              valueSuffix={` ${TOKEN_SYMBOL}`}
+            />
+          </div>
+
+          {/* Activity Feed */}
+          <ActivityFeed activities={activityFeed} />
+        </div>
+
+        {/* Insights */}
+        <div className="space-y-6 xl:col-span-2">
+          {/* Account Info Card */}
+          <Card className="border-white/10 bg-slate-900/40">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-green-400" />
+                Account Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-3">
-                <Skeleton className="h-5 w-48" />
-                <Skeleton className="h-5 w-56" />
-                <Skeleton className="h-5 w-40" />
-              </div>
-            ) : savingsHighlights.length ? (
-              savingsHighlights.map((goal) => (
-                <div key={goal.name} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm text-slate-300">
-                    <span className="font-medium text-slate-200">{goal.name}</span>
-                    <span className="font-mono text-xs text-cyan-200">{goal.progress}%</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-slate-800/70">
-                    <div className="h-2 rounded-full bg-cyan-500" style={{ width: `${goal.progress}%` }} />
-                  </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">Registration</span>
+                  <span className="text-slate-200 font-medium">
+                    {user?.registrationType?.toUpperCase() || 'EMAIL'}
+                  </span>
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-slate-400">Set a goal to start tracking your progress.</p>
-            )}
-          </CardContent>
-        </Card>
-      </section>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">Main Wallet</span>
+                  <span className="text-right">
+                    <span className="block font-semibold text-slate-200">
+                      {mainBalance} {TOKEN_SYMBOL}
+                    </span>
+                    <span className="block font-mono text-xs text-slate-400">
+                      {truncateAddress(walletBalance?.mainWallet?.address)}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">Savings Wallet</span>
+                  <span className="text-right">
+                    <span className="block font-semibold text-slate-200">
+                      {savingsBalance} {TOKEN_SYMBOL}
+                    </span>
+                    <span className="block font-mono text-xs text-slate-400">
+                      {truncateAddress(walletBalance?.savingsWallet?.address)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+              <div className="pt-3 border-t border-white/10">
+                <div className="flex items-center gap-2 text-sm text-green-400">
+                  <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></div>
+                  <span>Gasless transactions active</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      <section>
-        <Card className="border-white/10">
-          <CardHeader>
-            <CardTitle className="text-lg">Why gasless matters</CardTitle>
-            <CardDescription className="text-sm">
-              Users onboard with an email or wallet, and Saiv handles every blockchain interaction on their behalf.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4 text-sm text-slate-300">
-              <p className="mb-2 text-sm font-semibold text-slate-100">No wallet anxiety</p>
-              <p>New savers join with an email address and instantly receive main + savings wallets.</p>
+          {/* Recent Goals */}
+          <Card className="border-white/10 bg-slate-900/40">
+            <CardHeader>
+              <CardTitle className="text-lg">Latest savings goals</CardTitle>
+              <CardDescription>Most recent objectives you&apos;re tracking</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {highlightedGoals.length === 0 ? (
+                <p className="text-sm text-slate-400">Create your first goal to start building momentum.</p>
+              ) : (
+                highlightedGoals.map((goal) => {
+                  const current = Number(goal.currentAmount ?? 0);
+                  const target = Number(goal.targetAmount ?? 0) || 1;
+                  const progress = Math.min(100, (current / target) * 100);
+                  return (
+                    <div key={goal._id ?? goal.id ?? goal.name} className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-100">{goal.name}</p>
+                          <p className="text-xs text-slate-400">
+                            {formatTokenAmount(current, 2)} / {formatTokenAmount(target, 2)} {goal.currency ?? TOKEN_SYMBOL}
+                          </p>
+                        </div>
+                        <Badge variant={goal.status === 'completed' ? 'default' : 'outline'} className="text-xs">
+                          {goal.status === 'completed' ? 'Complete' : `${progress.toFixed(0)}%`}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Groups */}
+          <Card className="border-white/10 bg-slate-900/40">
+            <CardHeader>
+              <CardTitle className="text-lg">Active groups</CardTitle>
+              <CardDescription>Your latest coordination pods</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {highlightedGroups.length === 0 ? (
+                <p className="text-sm text-slate-400">Join or create a group to coordinate with your circle.</p>
+              ) : (
+                highlightedGroups.map((group) => (
+                  <div key={group._id ?? group.id ?? group.name} className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+                    <p className="text-sm font-semibold text-slate-100">{group.name}</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {group.description || 'Collaborative savings pod'}
+                    </p>
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                      <span>{group.members?.length ?? 0} members</span>
+                      <span>Min {group.poolSettings?.minContribution ?? '—'} {group.poolSettings?.currency ?? TOKEN_SYMBOL}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Information Cards */}
+      <Card className="border-white/10 bg-slate-900/40">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-cyan-400" />
+            Platform Advantages
+          </CardTitle>
+          <CardDescription className="text-sm">
+            Why Saiv delivers the best gasless savings experience
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-3">
+          <div className="text-center space-y-3">
+            <div className="mx-auto w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
+              <ShieldCheck className="h-6 w-6 text-green-400" />
             </div>
-            <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4 text-sm text-slate-300">
-              <p className="mb-2 text-sm font-semibold text-slate-100">Backend covers gas</p>
-              <p>Every contribution, withdrawal, and group deployment is paid for by the Saiv operator wallet.</p>
+            <div>
+              <h3 className="font-semibold text-slate-200">Zero Friction Onboarding</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Email registration creates instant wallets without seed phrases or gas fees
+              </p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4 text-sm text-slate-300">
-              <p className="mb-2 text-sm font-semibold text-slate-100">Unified controls</p>
-              <p>Trigger operations from this dashboard while the backend orchestrates secure smart contract calls.</p>
+          </div>
+          <div className="text-center space-y-3">
+            <div className="mx-auto w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <Coins className="h-6 w-6 text-blue-400" />
             </div>
-          </CardContent>
-        </Card>
-      </section>
+            <div>
+              <h3 className="font-semibold text-slate-200">Backend Gas Sponsorship</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Every transaction is sponsored by Saiv, eliminating all user gas costs
+              </p>
+            </div>
+          </div>
+          <div className="text-center space-y-3">
+            <div className="mx-auto w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+              <Users className="h-6 w-6 text-purple-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-200">Smart Group Coordination</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Transparent, automated savings groups with built-in contribution tracking
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -2,14 +2,18 @@
 
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Clipboard, ClipboardCheck, ChevronRight, LogOut, Sparkles } from 'lucide-react';
+import { Clipboard, ClipboardCheck, ChevronRight, LogOut, Menu, Sparkles } from 'lucide-react';
 import { ConnectWalletButton } from '@/components/auth/connect-wallet-button';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-context';
 import { cn, truncateAddress } from '@/lib/utils';
 import { toast } from 'sonner';
 
-export function AppHeader(): ReactElement {
+interface AppHeaderProps {
+  onMobileMenuToggle?: () => void;
+}
+
+export function AppHeader({ onMobileMenuToggle }: AppHeaderProps = {}): ReactElement {
   const { user, isAuthenticated, isLoading, signOut } = useAuth();
 
   const name = useMemo(() => user?.profile?.name || user?.email || user?.eoaAddress || 'Guest', [user]);
@@ -50,15 +54,25 @@ export function AppHeader(): ReactElement {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 px-6 py-4 backdrop-blur-lg">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/70 px-4 py-4 backdrop-blur-lg sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-1">
+        {/* Mobile Menu Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onMobileMenuToggle}
+          className="h-9 w-9 p-0 xl:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+
+        <div className="space-y-1 flex-1 xl:flex-initial">
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-cyan-300">
             <Sparkles className="h-3.5 w-3.5" />
             <span>Saiv Gasless</span>
           </div>
-          <h2 className="text-xl font-semibold text-slate-100">Welcome back{isAuthenticated && name ? `, ${name.split(' ')[0]}` : ''}</h2>
-          <p className="text-sm text-slate-400">
+          <h2 className="text-lg font-semibold text-slate-100 sm:text-xl">Welcome back{isAuthenticated && name ? `, ${name.split(' ')[0]}` : ''}</h2>
+          <p className="text-sm text-slate-400 hidden sm:block">
             {isAuthenticated
               ? 'Your wallets are synced and ready for gasless transactions.'
               : 'Connect via email or wallet to start orchestrating gasless savings.'}

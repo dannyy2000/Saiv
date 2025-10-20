@@ -249,7 +249,7 @@ export default function GroupDashboard(): ReactElement {
       </div>
 
       {/* Overview Cards */}
-      <div className="grid gap-6 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border-white/10">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">

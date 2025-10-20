@@ -59,7 +59,6 @@ backend/*.log
 
 # Contract specific
 contract/node_modules/
-contract/.env
 contract/cache/
 contract/artifacts/
 contract/deployments/

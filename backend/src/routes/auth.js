@@ -4,7 +4,7 @@ const authController = require('../controllers/authController');
 const { authMiddleware } = require('../middleware/auth');
 const { body } = require('express-validator');
 const { handleValidationErrors } = require('../middleware/validation');
-const { authLimiter, createAccountLimiter } = require('../middleware/rateLimiter');
+const {createAccountLimiter } = require('../middleware/rateLimiter');
 
 const validateEmailRegistration = [
   body('email')

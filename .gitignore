@@ -1,17 +1,76 @@
-node_modules
-.env
+# Environment variables (CRITICAL - NEVER COMMIT)
+contract/.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
 
-# Hardhat files
-/cache
-/artifacts
+# Dependencies
+node_modules/
+**/node_modules/
 
-# TypeChain files
-/typechain
-/typechain-types
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
 
-# solidity-coverage files
-/coverage
-/coverage.json
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Hardhat Ignition default folder for deployments against a local node
-ignition/deployments/chain-31337
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.claude
+
+
+# Backend specific
+backend/node_modules/
+backend/.env
+backend/*.log
+
+# Contract specific
+contract/node_modules/
+contract/cache/
+contract/artifacts/
+contract/deployments/
+contract/typechain/
+contract/typechain-types/
+
+# Frontend specific (when added)
+frontend/node_modules/
+frontend/.env
+frontend/build/
+frontend/dist/
+frontend/.next/
+
+# Misc
+.qodo/

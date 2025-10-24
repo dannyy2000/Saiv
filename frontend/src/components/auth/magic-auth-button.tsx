@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/providers/auth-context';
 import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
+import { NoSSR } from '@/components/no-ssr';
 import { cn } from '@/lib/utils';
 
 interface MagicAuthButtonProps {
@@ -67,49 +68,57 @@ export function MagicAuthButton({ className }: MagicAuthButtonProps): ReactEleme
   }
 
   return (
-    <Card className={cn('w-full max-w-md border-white/10 bg-slate-900/40', className)}>
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Sign in</CardTitle>
-        <CardDescription>
-          Enter your email address to create or access your Saiv account
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-slate-200">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="Enter your email address"
-                className="pl-10"
-                disabled={isLoading}
-                required
-              />
+    <NoSSR fallback={
+      <Card className={cn('w-full max-w-md border-white/10 bg-slate-900/40', className)}>
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Loading...</CardTitle>
+        </CardHeader>
+      </Card>
+    }>
+      <Card className={cn('w-full max-w-md border-white/10 bg-slate-900/40', className)}>
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Sign in</CardTitle>
+          <CardDescription>
+            Enter your email address to create or access your Saiv account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-sm font-medium text-slate-200">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="Enter your email address"
+                  className="pl-10"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
             </div>
-          </div>
 
-          <Button type="submit" className="w-full" disabled={!email || isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending link...
-              </>
-            ) : (
-              'Continue'
-            )}
-          </Button>
-          <p className="text-xs text-slate-400 text-center">
-            We&apos;ll spin up your gasless wallets and take you straight to the dashboard.
-          </p>
-        </form>
-      </CardContent>
-    </Card>
+            <Button type="submit" className="w-full" disabled={!email || isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending link...
+                </>
+              ) : (
+                'Continue'
+              )}
+            </Button>
+            <p className="text-xs text-slate-400 text-center">
+              We&apos;ll spin up your gasless wallets and take you straight to the dashboard.
+            </p>
+          </form>
+        </CardContent>
+      </Card>
+    </NoSSR>
   );
 }

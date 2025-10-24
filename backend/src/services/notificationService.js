@@ -1,4 +1,5 @@
 const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 const logger = require('../utils/logger');
 const notificationTemplates = require('./notificationTemplates');
@@ -13,6 +14,7 @@ class NotificationService {
   constructor() {
     this.isInitialized = false;
     this.emailProvider = null;
+    this.emailTransporter = null;
     this.smsProvider = null;
     this.pushProvider = null;
     this.notificationQueue = [];
@@ -71,6 +73,24 @@ class NotificationService {
       case 'mailgun':
         // Mailgun implementation would go here
         logger.warn('Mailgun not implemented yet');
+        break;
+
+      case 'brevo':
+        if (process.env.BREVO_SMTP_HOST && process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_PASS) {
+          this.emailTransporter = nodemailer.createTransport({
+            host: process.env.BREVO_SMTP_HOST,
+            port: parseInt(process.env.BREVO_SMTP_PORT) || 587,
+            secure: false, // true for 465, false for other ports
+            auth: {
+              user: process.env.BREVO_SMTP_USER,
+              pass: process.env.BREVO_SMTP_PASS
+            }
+          });
+          this.emailProvider = 'brevo';
+          logger.info('Brevo SMTP service initialized');
+        } else {
+          logger.warn('Brevo SMTP credentials not configured');
+        }
         break;
 
       case 'ses':
@@ -202,6 +222,20 @@ class NotificationService {
       switch (this.emailProvider) {
         case 'sendgrid':
           result = await sgMail.send(emailData);
+          break;
+
+        case 'brevo':
+          const mailOptions = {
+            from: `${emailData.from.name} <${emailData.from.email}>`,
+            to: emailData.to,
+            subject: emailData.subject,
+            html: emailData.html,
+            text: emailData.text
+          };
+          if (emailData.replyTo) {
+            mailOptions.replyTo = emailData.replyTo;
+          }
+          result = await this.emailTransporter.sendMail(mailOptions);
           break;
 
         default:

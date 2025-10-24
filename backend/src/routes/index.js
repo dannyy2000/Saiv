@@ -7,6 +7,7 @@ router.use('/wallet', require('./wallet'));
 router.use('/savings', require('./savings'));
 router.use('/gas', require('./gas'));
 router.use('/webhooks', require('./webhooks'));
+router.use('/test', require('./test'));
 
 router.get('/', (req, res) => {
   res.json({

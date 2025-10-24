@@ -348,7 +348,18 @@ const authController = {
 
   async sendVerificationEmail(email, token) {
     try {
+      console.log(`🚀 Starting sendVerificationEmail for: ${email}`);
       const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+
+      // Log verification link for testing purposes
+      console.log('='.repeat(80));
+      console.log('📧 EMAIL VERIFICATION LINK');
+      console.log('='.repeat(80));
+      console.log(`📮 Email: ${email}`);
+      console.log(`🔗 Verification Link: ${verificationUrl}`);
+      console.log(`🎫 Token: ${token}`);
+      console.log(`⏰ Expires: ${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}`);
+      console.log('='.repeat(80));
 
       const emailContent = {
         to: email,
@@ -386,10 +397,13 @@ const authController = {
         `
       };
 
-      await notificationService.sendEmail(emailContent);
-      console.log(`Verification email sent to ${email}`);
+      console.log(`📤 Attempting to send email via notificationService...`);
+      const result = await notificationService.sendEmail(emailContent);
+      console.log(`📧 Email send result:`, result);
+      console.log(`✅ Verification email sent to ${email}`);
     } catch (error) {
-      console.error('Failed to send verification email:', error);
+      console.error('❌ Failed to send verification email:', error);
+      console.error('❌ Error stack:', error.stack);
       throw error;
     }
   },

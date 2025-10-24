@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-context';
-import { toast } from 'sonner';
 
 interface EmailVerificationNoticeProps {
   email: string;
@@ -16,7 +15,7 @@ export function EmailVerificationNotice({ email, onClose }: EmailVerificationNot
 
   const handleResendVerification = async () => {
     setIsResending(true);
-    const success = await resendVerification(email);
+    await resendVerification(email);
     setIsResending(false);
   };
 
@@ -34,7 +33,7 @@ export function EmailVerificationNotice({ email, onClose }: EmailVerificationNot
           </h3>
           <div className="mt-2 text-sm text-yellow-700">
             <p>
-              We've sent a verification email to <strong>{email}</strong>.
+              We&apos;ve sent a verification email to <strong>{email}</strong>.
               Please check your inbox and click the verification link to complete your registration.
             </p>
           </div>

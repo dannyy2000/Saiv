@@ -41,14 +41,10 @@ export default function DashboardPage(): ReactElement {
   });
 
   const mainBalanceValue = Number(
-    walletBalance?.mainWallet?.balance ??
-    walletBalance?.mainWallet?.ethBalance ??
-    0
+    walletBalance?.mainWallet?.usdcEquivalent ?? 0
   ) || 0;
   const savingsBalanceValue = Number(
-    walletBalance?.savingsWallet?.balance ??
-    walletBalance?.savingsWallet?.ethBalance ??
-    0
+    walletBalance?.savingsWallet?.usdcEquivalent ?? 0
   ) || 0;
 
   const mainBalance = formatTokenAmount(mainBalanceValue, 2);

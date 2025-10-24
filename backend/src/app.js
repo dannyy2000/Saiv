@@ -7,6 +7,7 @@ const contractService = require('./services/contractService');
 const gaslessService = require('./services/gaslessService');
 const aaveService = require('./services/aaveService');
 const webhookService = require('./services/webhookService');
+const notificationService = require('./services/notificationService');
 const { globalErrorHandler, notFound } = require('./middleware/errorHandler');
 const { generalLimiter, speedLimiter } = require('./middleware/rateLimiter');
 require('dotenv').config();
@@ -79,6 +80,24 @@ connectDB();
     }
   } catch (err) {
     console.error('Webhook service initialization error:', err.message);
+  }
+})();
+
+// Initialize Notification service for emails, SMS, and push notifications
+(async () => {
+  try {
+    if (notificationService && typeof notificationService.initialize === 'function') {
+      const success = await notificationService.initialize();
+      if (success) {
+        console.log('✅ NOTIFICATION SERVICE ENABLED - Email verification active');
+        console.log('   - Email Provider: Brevo SMTP configured');
+        console.log('   - Verification Links: Will be logged to console for testing');
+      } else {
+        console.warn('⚠️ Notification service disabled - Check email provider config in .env');
+      }
+    }
+  } catch (err) {
+    console.error('Notification service initialization error:', err.message);
   }
 })();
 

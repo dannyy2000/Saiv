@@ -10,11 +10,14 @@ import {
   clearAuthToken,
   getErrorMessage,
 } from '@/lib/apiClient';
+import { authService } from '@/services/authService';
 import type { BackendUser } from '@/types/api';
 
 interface AuthResponse {
   token?: string;
   user?: BackendUser;
+  requiresVerification?: boolean;
+  email?: string;
 }
 
 interface EmailAuthContextType {
@@ -22,8 +25,11 @@ interface EmailAuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  requiresVerification: boolean;
+  verificationEmail: string | null;
   signInWithEmail: (email: string) => Promise<boolean>;
   refreshProfile: () => Promise<BackendUser | null>;
+  resendVerification: (email: string) => Promise<boolean>;
   signOut: () => Promise<void>;
 }
 
@@ -33,6 +39,8 @@ export function MagicAuthProvider({ children }: { children: React.ReactNode }): 
   const [user, setUser] = useState<BackendUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [requiresVerification, setRequiresVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
 
   const persistToken = useCallback((value: string | null) => {
     setAuthToken(value ?? null);
@@ -56,11 +64,22 @@ export function MagicAuthProvider({ children }: { children: React.ReactNode }): 
   }, []);
 
   const fetchProfile = useCallback(async (): Promise<BackendUser | null> => {
-    const response = await apiClient.get('/auth/profile');
-    const result = extractData(response);
-    const profile = mapUser(result);
-    setUser(profile);
-    return profile;
+    try {
+      const response = await apiClient.get('/auth/profile');
+      const result = extractData(response);
+      const profile = mapUser(result);
+      setUser(profile);
+      setRequiresVerification(false);
+      setVerificationEmail(null);
+      return profile;
+    } catch (error: any) {
+      if (error.response?.status === 403 && error.response?.data?.requiresVerification) {
+        setRequiresVerification(true);
+        setUser(null);
+        throw error;
+      }
+      throw error;
+    }
   }, [mapUser]);
 
   useEffect(() => {
@@ -106,27 +125,36 @@ export function MagicAuthProvider({ children }: { children: React.ReactNode }): 
 
     try {
       setIsLoading(true);
-      const endpoint = process.env.NODE_ENV === 'development'
-        ? '/auth/dev/register/email'
-        : '/auth/register/email';
+      const response = await authService.registerWithEmail(email);
 
-      const response = await apiClient.post(endpoint, { email });
-      const result = extractData(response) as AuthResponse;
+      if (response.success) {
+        if (response.data?.requiresVerification) {
+          setRequiresVerification(true);
+          setVerificationEmail(response.data.email || email);
+          toast.success('Please check your email to verify your account');
+          return false; // Don't redirect to dashboard
+        }
 
-      if (result.token) {
-        persistToken(result.token);
-      }
+        if (response.data?.token) {
+          persistToken(response.data.token);
+        }
 
-      if (result.user) {
-        setUser(result.user);
+        if (response.data?.user) {
+          setUser(response.data.user);
+          setRequiresVerification(false);
+          setVerificationEmail(null);
+        } else {
+          await fetchProfile().catch((error) => {
+            console.error('Profile refresh after email sign-in failed:', error);
+          });
+        }
+
+        toast.success('Signed in successfully');
+        return true;
       } else {
-        await fetchProfile().catch((error) => {
-          console.error('Profile refresh after email sign-in failed:', error);
-        });
+        toast.error(response.message || 'Unable to sign in. Please try again.');
+        return false;
       }
-
-      toast.success('Signed in successfully');
-      return true;
     } catch (error) {
       console.error('Email sign-in failed:', error);
       toast.error(getErrorMessage(error, 'Unable to sign in. Please try again.'));
@@ -149,12 +177,35 @@ export function MagicAuthProvider({ children }: { children: React.ReactNode }): 
     }
   }, [fetchProfile]);
 
+  const resendVerification = useCallback(async (email: string): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      const response = await authService.resendVerification(email);
+
+      if (response.success) {
+        toast.success('Verification email sent successfully');
+        return true;
+      } else {
+        toast.error(response.message || 'Failed to resend verification email');
+        return false;
+      }
+    } catch (error) {
+      console.error('Resend verification failed:', error);
+      toast.error(getErrorMessage(error, 'Failed to resend verification email'));
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     setIsLoading(true);
     try {
       persistToken(null);
       clearAuthToken();
       setUser(null);
+      setRequiresVerification(false);
+      setVerificationEmail(null);
       toast.success('Logged out successfully');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -169,8 +220,11 @@ export function MagicAuthProvider({ children }: { children: React.ReactNode }): 
     token,
     isLoading,
     isAuthenticated: Boolean(token && user),
+    requiresVerification,
+    verificationEmail,
     signInWithEmail,
     refreshProfile,
+    resendVerification,
     signOut,
   };
 

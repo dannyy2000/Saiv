@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/providers/auth-context';
+import { EmailVerificationNotice } from '@/components/auth/email-verification-notice';
 import { cn } from '@/lib/utils';
 
 interface MagicAuthButtonProps {
@@ -16,8 +17,9 @@ interface MagicAuthButtonProps {
 
 export function MagicAuthButton({ className }: MagicAuthButtonProps): ReactElement {
   const router = useRouter();
-  const { signInWithEmail, isLoading } = useAuth();
+  const { signInWithEmail, isLoading, requiresVerification, verificationEmail, resendVerification } = useAuth();
   const [email, setEmail] = useState('');
+  const [showVerificationNotice, setShowVerificationNotice] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -28,8 +30,41 @@ export function MagicAuthButton({ className }: MagicAuthButtonProps): ReactEleme
     const success = await signInWithEmail(email);
     if (success) {
       router.push('/dashboard');
+    } else if (requiresVerification) {
+      setShowVerificationNotice(true);
     }
   };
+
+  // Show verification notice if user requires verification
+  if (requiresVerification || showVerificationNotice) {
+    return (
+      <Card className={cn('w-full max-w-md border-white/10 bg-slate-900/40', className)}>
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Email Verification Required</CardTitle>
+          <CardDescription>
+            Please verify your email address to continue
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EmailVerificationNotice
+            email={verificationEmail || email}
+            onClose={() => {
+              setShowVerificationNotice(false);
+            }}
+          />
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowVerificationNotice(false);
+            }}
+            className="w-full mt-4"
+          >
+            Try Different Email
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className={cn('w-full max-w-md border-white/10 bg-slate-900/40', className)}>

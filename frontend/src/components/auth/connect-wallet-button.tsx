@@ -1,12 +1,9 @@
 'use client';
 
 import type { ReactElement, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
-import { LogIn } from 'lucide-react';
+import { ConnectButton, darkTheme } from 'thirdweb/react';
+import { client, wallets } from '@/lib/thirdweb';
 import { Button, type ButtonProps } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { MagicAuthModal } from './magic-auth-modal';
-import { useAuth } from '@/providers/auth-context';
 
 interface ConnectWalletButtonProps {
   label?: string;
@@ -17,41 +14,38 @@ interface ConnectWalletButtonProps {
 }
 
 export function ConnectWalletButton({
-  label = 'Sign In',
+  label = 'Sign In / Connect',
   className,
   variant = 'primary',
   size = 'md',
-  icon,
 }: ConnectWalletButtonProps): ReactElement {
-  const { isLoading, isAuthenticated } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      setIsModalOpen(false);
-    }
-  }, [isAuthenticated]);
-
-  return (
-    <>
+  // Graceful fallback when NEXT_PUBLIC_THIRDWEB_CLIENT_ID is not set
+  if (!client) {
+    return (
       <Button
         variant={variant}
         size={size}
-        className={cn('rounded-xl', className)}
-        onClick={() => {
-          if (!isLoading) {
-            setIsModalOpen(true);
-          }
-        }}
-        leftIcon={icon ?? <LogIn className="h-4 w-4" />}
-        isLoading={isLoading}
+        className={className}
+        disabled
+        title="Set NEXT_PUBLIC_THIRDWEB_CLIENT_ID in your .env.local to enable wallet connect"
       >
         {label}
       </Button>
-      <MagicAuthModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
-    </>
+    );
+  }
+
+  return (
+    <ConnectButton
+      client={client}
+      connectButton={{ label }}
+      connectModal={{ size: 'compact' }}
+      theme={darkTheme({
+        colors: {
+          modalBg: 'hsl(253, 53%, 5%)',
+          accentText: 'hsl(206, 75%, 53%)',
+        },
+      })}
+      wallets={wallets}
+    />
   );
 }

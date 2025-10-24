@@ -165,12 +165,12 @@ export default function WalletPage(): ReactElement {
 
 
   const mainBalanceFormatted = useMemo(
-    () => formatTokenAmount(walletBalance?.mainWallet?.balance ?? '0', 6),
-    [walletBalance?.mainWallet?.balance]
+    () => formatTokenAmount(walletBalance?.mainWallet?.usdcEquivalent ?? '0', 2),
+    [walletBalance?.mainWallet?.usdcEquivalent]
   );
   const savingsBalanceFormatted = useMemo(
-    () => formatTokenAmount(walletBalance?.savingsWallet?.balance ?? '0', 6),
-    [walletBalance?.savingsWallet?.balance]
+    () => formatTokenAmount(walletBalance?.savingsWallet?.usdcEquivalent ?? '0', 2),
+    [walletBalance?.savingsWallet?.usdcEquivalent]
   );
 
   return (
@@ -188,7 +188,7 @@ export default function WalletPage(): ReactElement {
             <CardDescription>Gasless account for everyday transfers.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isWalletLoading ? <Skeleton className="h-8 w-32" /> : <p className="text-3xl font-semibold text-slate-50">{mainBalanceFormatted} ETH</p>}
+            {isWalletLoading ? <Skeleton className="h-8 w-32" /> : <p className="text-3xl font-semibold text-slate-50">${mainBalanceFormatted} USDC</p>}
             <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3 text-xs text-slate-400">
               <p className="uppercase tracking-wide text-slate-500">Address</p>
               <p className="font-mono text-sm text-cyan-200">{truncateAddress(walletBalance?.mainWallet?.address)}</p>
@@ -203,7 +203,7 @@ export default function WalletPage(): ReactElement {
             <CardDescription>Automated wallet for long-term goals.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isWalletLoading ? <Skeleton className="h-8 w-32" /> : <p className="text-3xl font-semibold text-slate-50">{savingsBalanceFormatted} ETH</p>}
+            {isWalletLoading ? <Skeleton className="h-8 w-32" /> : <p className="text-3xl font-semibold text-slate-50">${savingsBalanceFormatted} USDC</p>}
             <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3 text-xs text-slate-400">
               <p className="uppercase tracking-wide text-slate-500">Address</p>
               <p className="font-mono text-sm text-cyan-200">{truncateAddress(walletBalance?.savingsWallet?.address)}</p>

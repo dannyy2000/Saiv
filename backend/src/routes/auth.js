@@ -46,4 +46,8 @@ router.get('/profile', authMiddleware, authController.getProfile);
 
 router.put('/balance', authMiddleware, validateBalanceUpdate, authController.updateBalance);
 
+// Email verification routes
+router.post('/verify-email', authController.verifyEmail);
+router.post('/resend-verification', authController.resendVerification);
+
 module.exports = router;

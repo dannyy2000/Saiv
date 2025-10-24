@@ -9,9 +9,12 @@ export type AuthContextValue = {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  requiresVerification: boolean;
+  verificationEmail: string | null;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<BackendUser | null>;
   signInWithEmail: (email: string) => Promise<boolean>;
+  resendVerification: (email: string) => Promise<boolean>;
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }): ReactElement {
@@ -24,9 +27,12 @@ export function useAuth(): AuthContextValue {
     token,
     isAuthenticated,
     isLoading,
+    requiresVerification,
+    verificationEmail,
     signOut,
     refreshProfile,
     signInWithEmail,
+    resendVerification,
   } = useMagicAuth();
 
   return {
@@ -34,8 +40,11 @@ export function useAuth(): AuthContextValue {
     token,
     isAuthenticated,
     isLoading,
+    requiresVerification,
+    verificationEmail,
     signOut,
     refreshProfile,
     signInWithEmail,
+    resendVerification,
   };
 }

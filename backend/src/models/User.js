@@ -60,6 +60,19 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isEmailVerified: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether email has been verified'
+  },
+  emailVerificationToken: {
+    type: String,
+    comment: 'Token for email verification'
+  },
+  emailVerificationExpires: {
+    type: Date,
+    comment: 'When email verification token expires'
+  },
   lastLogin: {
     type: Date,
     default: Date.now

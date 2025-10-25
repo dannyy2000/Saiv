@@ -7,12 +7,12 @@ interface EthereumProvider {
   isMetaMask?: boolean;
   isCoinbaseWallet?: boolean;
   isRabby?: boolean;
-  request?: (args: any) => Promise<any>;
+  request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
 }
 
 export function useEthereumProvider() {
   const [provider, setProvider] = useState<EthereumProvider | null>(null);
-  const [detectedWallets, setDetectedWallets] = useState<any[]>([]);
+  const [detectedWallets, setDetectedWallets] = useState<unknown[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -27,12 +27,12 @@ export function useEthereumProvider() {
         setDetectedWallets(wallets);
 
         // Prefer MetaMask if available
-        const ethereum = (window as any).ethereum;
+        const ethereum = (window as { ethereum?: EthereumProvider & { providers?: EthereumProvider[] } }).ethereum;
         if (ethereum) {
           // Handle multiple providers
-          if (ethereum.providers?.length > 0) {
+          if (ethereum.providers && ethereum.providers.length > 0) {
             // Find MetaMask specifically
-            const metamask = ethereum.providers.find((p: any) => p.isMetaMask);
+            const metamask = ethereum.providers?.find((p: EthereumProvider) => p.isMetaMask);
             setProvider(metamask || ethereum.providers[0]);
           } else {
             setProvider(ethereum);

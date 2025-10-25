@@ -1,9 +1,16 @@
 'use client';
 
+interface EthereumProvider {
+  isMetaMask?: boolean;
+  isCoinbaseWallet?: boolean;
+  isRabby?: boolean;
+  request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+}
+
 interface ExtensionInfo {
   name: string;
   detected: boolean;
-  provider?: any;
+  provider?: EthereumProvider | unknown;
 }
 
 export function detectWalletExtensions(): ExtensionInfo[] {
@@ -14,8 +21,8 @@ export function detectWalletExtensions(): ExtensionInfo[] {
   const extensions: ExtensionInfo[] = [];
 
   // MetaMask
-  if (typeof (window as any).ethereum !== 'undefined') {
-    const ethereum = (window as any).ethereum;
+  if (typeof (window as { ethereum?: EthereumProvider }).ethereum !== 'undefined') {
+    const ethereum = (window as { ethereum?: EthereumProvider }).ethereum!;
 
     if (ethereum.isMetaMask) {
       extensions.push({
@@ -52,23 +59,23 @@ export function detectWalletExtensions(): ExtensionInfo[] {
   }
 
   // Coinbase Wallet (alternative detection)
-  if (typeof (window as any).coinbaseWalletExtension !== 'undefined') {
+  if (typeof (window as { coinbaseWalletExtension?: unknown }).coinbaseWalletExtension !== 'undefined') {
     const existingCoinbase = extensions.find(ext => ext.name === 'Coinbase Wallet');
     if (!existingCoinbase) {
       extensions.push({
         name: 'Coinbase Wallet',
         detected: true,
-        provider: (window as any).coinbaseWalletExtension
+        provider: (window as { coinbaseWalletExtension?: unknown }).coinbaseWalletExtension!
       });
     }
   }
 
   // Phantom (Solana)
-  if (typeof (window as any).phantom !== 'undefined') {
+  if (typeof (window as { phantom?: unknown }).phantom !== 'undefined') {
     extensions.push({
       name: 'Phantom',
       detected: true,
-      provider: (window as any).phantom
+      provider: (window as { phantom?: unknown }).phantom!
     });
   }
 

@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Sparkles, Wallet, Zap } from 'lucide-react';
-import { MagicAuthTrigger } from '@/components/auth/magic-auth-modal';
 import { ConnectWalletButton } from '@/components/auth/connect-wallet-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,12 +86,7 @@ export default function LandingPage(): ReactElement {
                 </Button>
               </Link>
             ) : (
-              <MagicAuthTrigger>
-                <Button size="lg" className="text-lg px-8 py-3">
-                  Get Started
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </MagicAuthTrigger>
+              <ConnectWalletButton label="Get Started" />
             )}
             <Link href="/dashboard">
               <Button variant="ghost" size="lg" className="text-lg px-8 py-3">
@@ -216,12 +210,7 @@ export default function LandingPage(): ReactElement {
                 </Button>
               </Link>
             ) : (
-              <MagicAuthTrigger>
-                <Button size="lg" className="text-lg px-8 py-3">
-                  Get Started for Free
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </MagicAuthTrigger>
+              <ConnectWalletButton label="Get Started for Free" />
             )}
           </div>
         </section>

@@ -135,7 +135,8 @@ export function AnalyticsChart({
 
             {/* Data points */}
             {data.map((point, index) => {
-              const x = (index / (data.length - 1)) * 100;
+              // Guard against single-point datasets to avoid NaN for cx (index / (len - 1))
+              const x = (index / Math.max(data.length - 1, 1)) * 100;
               const y = ((maxValue - point.value) / (maxValue - minValue || 1)) * 80 + 10;
               return (
                 <circle

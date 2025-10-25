@@ -141,7 +141,7 @@ export function AppHeader({ onMobileMenuToggle }: AppHeaderProps = {}): ReactEle
               variant="ghost"
               size="md"
               onClick={() => {
-                void signOut();
+                signOut();
               }}
               leftIcon={<LogOut className="h-4 w-4" />}
               className={cn('border border-transparent text-slate-300 hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-200', isLoading && 'pointer-events-none opacity-60')}

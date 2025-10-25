@@ -8,7 +8,7 @@ import { Toaster } from 'sonner';
 import { ThirdwebProvider, useActiveAccount } from 'thirdweb/react';
 // Chains are centrally configured in src/lib/thirdweb.ts via `supportedChains`
 import { useRouter } from 'next/navigation';
-import { client, supportedChains } from '@/lib/thirdweb';
+import { client } from '@/lib/thirdweb';
 import { AuthProvider } from '@/providers/auth-context';
 import { cleanupBrowserExtensionAttributes, suppressBrowserExtensionWarnings } from '@/lib/browser-extensions';
 
@@ -51,13 +51,13 @@ export function Providers({ children }: { children: React.ReactNode }): ReactEle
       }
     }, [account?.address, router]);
 
-    return null;
+    return <></>;
   }
 
   return (
     <QueryClientProvider client={queryClient}>
       {client ? (
-        <ThirdwebProvider client={client} chains={supportedChains}>
+        <ThirdwebProvider>
           {/* Networks: Lisk & Lisk Sepolia are defined in src/lib/thirdweb.ts: `export const supportedChains`. Update there to change networks. */}
           <AuthProvider>
             <RedirectOnConnect />

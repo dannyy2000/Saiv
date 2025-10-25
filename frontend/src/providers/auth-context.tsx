@@ -2,7 +2,7 @@
 
 import type { ReactElement } from 'react';
 import type { BackendUser } from '@/types/api';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useActiveAccount, useActiveWallet } from 'thirdweb/react';
 import { client } from '@/lib/thirdweb';
 
@@ -25,36 +25,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 }
 
 export function useAuth(): AuthContextValue {
-  // If Thirdweb client is not configured, avoid calling thirdweb hooks
-  if (!client) {
-    return {
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isLoading: false,
-      requiresVerification: false,
-      verificationEmail: null,
-      signOut: async () => {},
-      refreshProfile: async () => null,
-      signInWithEmail: async (_email: string) => false,
-      resendVerification: async (_email: string) => false,
-    };
-  }
-
+  // Always call hooks first, then handle the conditional logic
   const account = useActiveAccount();
   const wallet = useActiveWallet();
 
   const address = account?.address ?? null;
 
-  const user: BackendUser | null = address
-    ? {
-        id: address,
-        address,
-        eoaAddress: address,
-        registrationType: 'wallet',
-        profile: {},
-      }
-    : null;
+  const user: BackendUser | null = useMemo(() => {
+    if (!address) return null;
+    return {
+      id: address,
+      address,
+      eoaAddress: address,
+      registrationType: 'wallet',
+      profile: {},
+    };
+  }, [address]);
 
   const isAuthenticated = Boolean(address);
 
@@ -71,12 +57,32 @@ export function useAuth(): AuthContextValue {
   }, [user]);
 
   const signInWithEmail = useCallback(async (_email: string): Promise<boolean> => {
+    // TODO: Implement email authentication when backend is ready
+    console.log('Email sign-in attempted:', _email);
     return false;
   }, []);
 
   const resendVerification = useCallback(async (_email: string): Promise<boolean> => {
+    // TODO: Implement email verification when backend is ready
+    console.log('Email verification requested:', _email);
     return false;
   }, []);
+
+  // If Thirdweb client is not configured, return default values but still with working functions
+  if (!client) {
+    return {
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      requiresVerification: false,
+      verificationEmail: null,
+      signOut,
+      refreshProfile,
+      signInWithEmail,
+      resendVerification,
+    };
+  }
 
   return {
     user,

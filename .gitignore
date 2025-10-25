@@ -35,6 +35,7 @@ Thumbs.db
 .project
 .classpath
 .settings/
+.wake
 
 # Build outputs
 dist/

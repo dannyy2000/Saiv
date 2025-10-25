@@ -5,6 +5,7 @@ import type { BackendUser } from '@/types/api';
 import { useCallback, useMemo } from 'react';
 import { useActiveAccount, useActiveWallet } from 'thirdweb/react';
 import { client } from '@/lib/thirdweb';
+import { useRouter } from 'next/navigation';
 
 export type AuthContextValue = {
   user: BackendUser | null;
@@ -28,6 +29,7 @@ export function useAuth(): AuthContextValue {
   // Always call hooks first, then handle the conditional logic
   const account = useActiveAccount();
   const wallet = useActiveWallet();
+  const router = useRouter();
 
   const address = account?.address ?? null;
 
@@ -46,11 +48,15 @@ export function useAuth(): AuthContextValue {
 
   const signOut = useCallback(async () => {
     try {
-      await wallet?.disconnect?.();
-    } catch {
-      // ignore
+      if (wallet) {
+        await wallet.disconnect?.();
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+      router.push('/');
+    } catch (error) {
+      router.push('/');
     }
-  }, [wallet]);
+  }, [wallet, router]);
 
   const refreshProfile = useCallback(async (): Promise<BackendUser | null> => {
     return user;
@@ -58,13 +64,11 @@ export function useAuth(): AuthContextValue {
 
   const signInWithEmail = useCallback(async (_email: string): Promise<boolean> => {
     // TODO: Implement email authentication when backend is ready
-    console.log('Email sign-in attempted:', _email);
     return false;
   }, []);
 
   const resendVerification = useCallback(async (_email: string): Promise<boolean> => {
     // TODO: Implement email verification when backend is ready
-    console.log('Email verification requested:', _email);
     return false;
   }, []);
 

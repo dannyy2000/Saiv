@@ -11,7 +11,7 @@ A decentralized savings and group management platform with **100% gasless transa
 - **Backend-subsidized** - All smart contract interactions are free for users
 
 ### 👤 User Management
-- **Email Registration** - Passwordless authentication via Web3Auth
+- **Email Registration** - Passwordless authentication via Thirdweb
 - **Wallet Registration** - Connect with existing EOA wallets
 - **Automatic Wallets** - Get 2 smart contract wallets (main + savings)
 - **Balance Tracking** - Real-time balance updates

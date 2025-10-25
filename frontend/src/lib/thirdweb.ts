@@ -41,6 +41,7 @@ export const wallets = [
     },
   }),
   createWallet("io.metamask"),
+  createWallet("app.phantom"),
   createWallet("com.coinbase.wallet"),
   createWallet("me.rainbow"),
   createWallet("io.rabby"),

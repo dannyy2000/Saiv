@@ -97,7 +97,7 @@ export default function LandingPage(): ReactElement {
           </div>
 
           {/* Stats */}
-          <div className="grid gap-8 sm:grid-cols-3 max-w-4xl mx-auto pt-8">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto pt-8">
             <div className="text-center group cursor-pointer">
               <p className="text-3xl font-bold text-cyan-400 group-hover:scale-110 transition-transform duration-300">$0</p>
               <p className="text-slate-400 group-hover:text-slate-300 transition-colors">Transaction Fees</p>
@@ -125,7 +125,7 @@ export default function LandingPage(): ReactElement {
             </p>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {features.map((feature, index) => (
               <Card key={feature.title} className="border-white/10 bg-slate-900/40 hover:bg-slate-900/60 hover:border-cyan-500/30 transition-all duration-500 hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/20 group animate-in slide-in-from-bottom duration-700" style={{ animationDelay: `${1200 + index * 200}ms` }}>
                 <CardHeader className="text-center space-y-4">
@@ -154,7 +154,7 @@ export default function LandingPage(): ReactElement {
             </p>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <div className="text-center space-y-4 group">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/20 border-2 border-cyan-400/40 text-cyan-400 font-bold text-lg group-hover:scale-110 transition-transform duration-300">
                 1

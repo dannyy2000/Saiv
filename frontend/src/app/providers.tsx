@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactElement } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Toaster } from 'sonner';
@@ -17,11 +17,13 @@ export function Providers({ children }: { children: React.ReactNode }): ReactEle
     defaultOptions: {
       queries: {
         refetchOnWindowFocus: false,
-        refetchOnReconnect: true,
-        retry: 1,
+        refetchOnReconnect: false,
+        retry: 0,
+        staleTime: 60_000,
+        gcTime: 300_000,
       },
       mutations: {
-        retry: 1,
+        retry: 0,
       },
     },
   }));
@@ -42,11 +44,14 @@ export function Providers({ children }: { children: React.ReactNode }): ReactEle
   function RedirectOnConnect(): ReactElement {
     const account = useActiveAccount();
     const router = useRouter();
+    const hasRedirected = useRef(false);
 
     useEffect(() => {
       // Auto-route to dashboard after successful sign-in / wallet connect.
       // Limits redirect to the landing page ('/') to avoid disrupting in-app pages.
-      if (account?.address && typeof window !== 'undefined' && window.location?.pathname === '/') {
+      const onLanding = typeof window !== 'undefined' && window.location?.pathname === '/';
+      if (onLanding && account?.address && !hasRedirected.current) {
+        hasRedirected.current = true;
         router.push('/dashboard');
       }
     }, [account?.address, router]);

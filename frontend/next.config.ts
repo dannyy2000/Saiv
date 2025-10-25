@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Ensure Thirdweb ESM packages are transpiled for Next.js (Turbopack)
+  transpilePackages: ["thirdweb"],
   async rewrites() {
     const backend = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
     const base = backend.replace(/\/$/, "");

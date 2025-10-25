@@ -2,26 +2,39 @@ import { apiClient, extractData, type ApiEnvelope } from '@/lib/apiClient';
 import type { Contribution, Group, GroupMember, PaymentWindow } from '@/types/api';
 
 export async function fetchGroups(): Promise<Group[]> {
-  const response = await apiClient.get<ApiEnvelope<Group[]> | Group[]>('/groups');
-  const data = extractData(response) as Group[] | { groups?: Group[] };
-  if (Array.isArray(data)) {
-    return data;
+  try {
+    const response = await apiClient.get<ApiEnvelope<Group[]> | Group[]>('/groups');
+    const data = extractData(response) as Group[] | { groups?: Group[] };
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return data.groups ?? [];
+  } catch (_err) {
+    // Fallback to empty list when backend is unreachable to avoid error page compilation
+    return [];
   }
-  return data.groups ?? [];
 }
 
 export async function fetchGroup(groupId: string): Promise<Group | null> {
   if (!groupId) {
     return null;
   }
-  const response = await apiClient.get<ApiEnvelope<Group> | Group>(`/groups/${groupId}`);
-  return extractData(response) as Group;
+  try {
+    const response = await apiClient.get<ApiEnvelope<Group> | Group>(`/groups/${groupId}`);
+    return extractData(response) as Group;
+  } catch (_err) {
+    return null;
+  }
 }
 
 export async function fetchGroupMembers(groupId: string): Promise<GroupMember[]> {
-  const response = await apiClient.get<ApiEnvelope<GroupMember[]> | GroupMember[]>(`/groups/${groupId}/members`);
-  const data = extractData(response);
-  return Array.isArray(data) ? data : [];
+  try {
+    const response = await apiClient.get<ApiEnvelope<GroupMember[]> | GroupMember[]>(`/groups/${groupId}/members`);
+    const data = extractData(response);
+    return Array.isArray(data) ? data : [];
+  } catch (_err) {
+    return [];
+  }
 }
 
 export async function createGroup(payload: {
@@ -52,9 +65,13 @@ export async function leaveGroup(groupId: string): Promise<void> {
 }
 
 export async function fetchPaymentWindows(groupId: string): Promise<PaymentWindow[]> {
-  const response = await apiClient.get<ApiEnvelope<PaymentWindow[]> | PaymentWindow[]>(`/groups/${groupId}/payment-windows`);
-  const data = extractData(response);
-  return Array.isArray(data) ? data : [];
+  try {
+    const response = await apiClient.get<ApiEnvelope<PaymentWindow[]> | PaymentWindow[]>(`/groups/${groupId}/payment-windows`);
+    const data = extractData(response);
+    return Array.isArray(data) ? data : [];
+  } catch (_err) {
+    return [];
+  }
 }
 
 export async function createPaymentWindow(
@@ -81,7 +98,11 @@ export async function contributeTokenToGroup(groupId: string, payload: { tokenAd
 }
 
 export async function fetchUserContributions(groupId: string, userId: string): Promise<Contribution[]> {
-  const response = await apiClient.get<ApiEnvelope<Contribution[]> | Contribution[]>(`/groups/${groupId}/contributions/${userId}`);
-  const data = extractData(response);
-  return Array.isArray(data) ? data : [];
+  try {
+    const response = await apiClient.get<ApiEnvelope<Contribution[]> | Contribution[]>(`/groups/${groupId}/contributions/${userId}`);
+    const data = extractData(response);
+    return Array.isArray(data) ? data : [];
+  } catch (_err) {
+    return [];
+  }
 }

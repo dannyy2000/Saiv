@@ -2,23 +2,50 @@ import { apiClient, extractData, type ApiEnvelope } from '@/lib/apiClient';
 import type { SupportedToken, TokenBalance, WalletBalance } from '@/types/api';
 
 export async function fetchWalletBalance(): Promise<WalletBalance> {
-  const response = await apiClient.get<ApiEnvelope<WalletBalance> | WalletBalance>('/wallet/balance');
-  return extractData(response);
+  try {
+    const response = await apiClient.get<ApiEnvelope<WalletBalance> | WalletBalance>('/wallet/balance');
+    return extractData(response);
+  } catch (_err) {
+    // Graceful fallback when backend is unreachable to prevent dev server stalls
+    return {
+      mainWallet: { usdcEquivalent: '0' },
+      savingsWallet: { usdcEquivalent: '0' },
+      totalUsdcEquivalent: '0',
+      conversionInfo: {
+        isDemo: true,
+        note: 'Backend unreachable - showing placeholder balances',
+      },
+    };
+  }
 }
 
 export async function fetchSupportedTokens(): Promise<SupportedToken[]> {
-  const response = await apiClient.get<ApiEnvelope<{ tokens: SupportedToken[] }> | { tokens: SupportedToken[] }>(
-    '/wallet/supported-tokens'
-  );
-  const data = extractData(response) as { tokens?: SupportedToken[] };
-  return data.tokens ?? [];
+  try {
+    const response = await apiClient.get<ApiEnvelope<{ tokens: SupportedToken[] }> | { tokens: SupportedToken[] }>(
+      '/wallet/supported-tokens'
+    );
+    const data = extractData(response) as { tokens?: SupportedToken[] };
+    return data.tokens ?? [];
+  } catch (_err) {
+    // Fallback: no supported tokens when backend is offline
+    return [];
+  }
 }
 
 export async function fetchTokenBalance(tokenAddress: string, walletType: 'main' | 'savings' = 'main'): Promise<TokenBalance> {
-  const response = await apiClient.get<ApiEnvelope<TokenBalance> | TokenBalance>('/wallet/token-balance', {
-    params: { tokenAddress, walletType },
-  });
-  return extractData(response);
+  try {
+    const response = await apiClient.get<ApiEnvelope<TokenBalance> | TokenBalance>('/wallet/token-balance', {
+      params: { tokenAddress, walletType },
+    });
+    return extractData(response);
+  } catch (_err) {
+    // Fallback: zero balance when backend is offline
+    return {
+      tokenAddress,
+      balance: '0',
+      formatted: '0',
+    };
+  }
 }
 
 export async function sendEth(payload: {

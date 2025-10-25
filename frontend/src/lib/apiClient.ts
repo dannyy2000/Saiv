@@ -26,7 +26,9 @@ let unauthorizedHandler: (() => void) | null = null;
 export const apiClient: AxiosInstance = axios.create({
   baseURL: DEFAULT_API_BASE_URL,
   withCredentials: false,
-  timeout: 15000, // Fail fast instead of leaving the UI stuck
+  // Reduce timeout to avoid long hangs when backend is offline or unreachable.
+  // This prevents Next/Turbopack dev from stalling on client navigations.
+  timeout: 5000,
 });
 
 type MaybeEnvelope<T> = ApiEnvelope<T> | T;

@@ -2,7 +2,7 @@
 
 import type { ReactElement } from 'react';
 import type { BackendUser } from '@/types/api';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useActiveAccount, useActiveWallet } from 'thirdweb/react';
 import { client } from '@/lib/thirdweb';
 
@@ -31,15 +31,16 @@ export function useAuth(): AuthContextValue {
 
   const address = account?.address ?? null;
 
-  const user: BackendUser | null = address
-    ? {
-        id: address,
-        address,
-        eoaAddress: address,
-        registrationType: 'wallet',
-        profile: {},
-      }
-    : null;
+  const user: BackendUser | null = useMemo(() => {
+    if (!address) return null;
+    return {
+      id: address,
+      address,
+      eoaAddress: address,
+      registrationType: 'wallet',
+      profile: {},
+    };
+  }, [address]);
 
   const isAuthenticated = Boolean(address);
 
@@ -55,11 +56,15 @@ export function useAuth(): AuthContextValue {
     return user;
   }, [user]);
 
-  const signInWithEmail = useCallback(async (email: string): Promise<boolean> => {
+  const signInWithEmail = useCallback(async (_email: string): Promise<boolean> => {
+    // TODO: Implement email authentication when backend is ready
+    console.log('Email sign-in attempted:', _email);
     return false;
   }, []);
 
-  const resendVerification = useCallback(async (email: string): Promise<boolean> => {
+  const resendVerification = useCallback(async (_email: string): Promise<boolean> => {
+    // TODO: Implement email verification when backend is ready
+    console.log('Email verification requested:', _email);
     return false;
   }, []);
 

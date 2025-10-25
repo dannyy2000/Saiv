@@ -8,7 +8,7 @@ import { Toaster } from 'sonner';
 import { ThirdwebProvider, useActiveAccount } from 'thirdweb/react';
 // Chains are centrally configured in src/lib/thirdweb.ts via `supportedChains`
 import { useRouter } from 'next/navigation';
-import { client, supportedChains } from '@/lib/thirdweb';
+import { client } from '@/lib/thirdweb';
 import { AuthProvider } from '@/providers/auth-context';
 import { cleanupBrowserExtensionAttributes, suppressBrowserExtensionWarnings } from '@/lib/browser-extensions';
 

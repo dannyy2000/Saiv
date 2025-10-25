@@ -6,7 +6,7 @@ export interface AuthResponse {
   success: boolean;
   message: string;
   data?: {
-    user?: any;
+    user?: User;
     token?: string;
     requiresVerification?: boolean;
     email?: string;
@@ -67,10 +67,10 @@ class AuthService {
       });
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.response?.data?.message || 'Registration failed'
+        message: (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Registration failed'
       };
     }
   }
@@ -86,10 +86,10 @@ class AuthService {
       }
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.response?.data?.message || 'Registration failed'
+        message: (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Registration failed'
       };
     }
   }
@@ -105,10 +105,10 @@ class AuthService {
       }
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.response?.data?.message || 'Email verification failed'
+        message: (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Email verification failed'
       };
     }
   }
@@ -120,10 +120,10 @@ class AuthService {
       });
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.response?.data?.message || 'Failed to resend verification email'
+        message: (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to resend verification email'
       };
     }
   }
@@ -135,8 +135,9 @@ class AuthService {
       });
 
       return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 403 && error.response?.data?.requiresVerification) {
+    } catch (error: unknown) {
+      const errorObj = error as { response?: { status?: number; data?: { requiresVerification?: boolean; message?: string } } };
+      if (errorObj.response?.status === 403 && errorObj.response?.data?.requiresVerification) {
         return {
           success: false,
           message: 'Email verification required'
@@ -145,7 +146,7 @@ class AuthService {
 
       return {
         success: false,
-        message: error.response?.data?.message || 'Failed to get profile'
+        message: errorObj.response?.data?.message || 'Failed to get profile'
       };
     }
   }
@@ -159,10 +160,10 @@ class AuthService {
       });
 
       return response.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
-        message: error.response?.data?.message || 'Failed to update balance'
+        message: (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to update balance'
       };
     }
   }

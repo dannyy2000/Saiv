@@ -13,13 +13,6 @@ import {
 import { authService } from '@/services/authService';
 import type { BackendUser } from '@/types/api';
 
-interface AuthResponse {
-  token?: string;
-  user?: BackendUser;
-  requiresVerification?: boolean;
-  email?: string;
-}
-
 interface EmailAuthContextType {
   user: BackendUser | null;
   token: string | null;
@@ -72,8 +65,9 @@ export function MagicAuthProvider({ children }: { children: React.ReactNode }): 
       setRequiresVerification(false);
       setVerificationEmail(null);
       return profile;
-    } catch (error: any) {
-      if (error.response?.status === 403 && error.response?.data?.requiresVerification) {
+    } catch (error: unknown) {
+      const errorObj = error as { response?: { status?: number; data?: { requiresVerification?: boolean } } };
+      if (errorObj.response?.status === 403 && errorObj.response?.data?.requiresVerification) {
         setRequiresVerification(true);
         setUser(null);
         throw error;
@@ -140,7 +134,7 @@ export function MagicAuthProvider({ children }: { children: React.ReactNode }): 
         }
 
         if (response.data?.user) {
-          setUser(response.data.user);
+          setUser(response.data.user as BackendUser);
           setRequiresVerification(false);
           setVerificationEmail(null);
         } else {

@@ -35,8 +35,8 @@ async function fetchTransactionHistory(): Promise<Transaction[]> {
       {
         id: '1',
         type: 'receive',
-        amount: '0.5',
-        token: 'ETH',
+        amount: '1250.00',
+        token: 'USDC',
         fromAddress: '0x1234...5678',
         status: 'completed',
         timestamp: new Date(Date.now() - 3600000).toISOString(),
@@ -45,8 +45,8 @@ async function fetchTransactionHistory(): Promise<Transaction[]> {
       {
         id: '2',
         type: 'send',
-        amount: '0.1',
-        token: 'ETH',
+        amount: '250.00',
+        token: 'USDC',
         toAddress: '0x9876...5432',
         status: 'completed',
         timestamp: new Date(Date.now() - 7200000).toISOString(),
@@ -55,8 +55,8 @@ async function fetchTransactionHistory(): Promise<Transaction[]> {
       {
         id: '3',
         type: 'transfer',
-        amount: '0.2',
-        token: 'ETH',
+        amount: '500.00',
+        token: 'USDC',
         status: 'completed',
         timestamp: new Date(Date.now() - 10800000).toISOString(),
         walletType: 'savings'

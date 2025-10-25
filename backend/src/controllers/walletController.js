@@ -1,5 +1,6 @@
 const { ethers } = require('ethers');
 const contractService = require('../services/contractService');
+const currencyService = require('../services/currencyService');
 const User = require('../models/User');
 
 const walletController = {
@@ -21,19 +22,27 @@ const walletController = {
       // Get ETH balance from savings wallet
       const savingsEthBalance = await contractService.getWalletBalance(user.savingsAddress);
 
+      // Basic wallet data
+      const walletData = {
+        mainWallet: {
+          address: user.address,
+          balance: ethBalance.ether,
+          ethBalance: ethBalance
+        },
+        savingsWallet: {
+          address: user.savingsAddress,
+          balance: savingsEthBalance.ether,
+          ethBalance: savingsEthBalance
+        },
+        databaseBalance: user.balance
+      };
+
+      // Enhance with USDC conversions
+      const enhancedWalletData = currencyService.enhanceWalletBalance(walletData);
+
       res.status(200).json({
         success: true,
-        data: {
-          mainWallet: {
-            address: user.address,
-            ethBalance: ethBalance
-          },
-          savingsWallet: {
-            address: user.savingsAddress,
-            ethBalance: savingsEthBalance
-          },
-          databaseBalance: user.balance
-        }
+        data: enhancedWalletData
       });
 
     } catch (error) {

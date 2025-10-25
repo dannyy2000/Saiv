@@ -27,19 +27,24 @@ export function BalanceOverview({ className }: BalanceOverviewProps): ReactEleme
 
   const totalBalance = useMemo(() => {
     if (!walletBalance) return '0';
-    const mainBalance = parseFloat(walletBalance.mainWallet?.balance || '0');
-    const savingsBalance = parseFloat(walletBalance.savingsWallet?.balance || '0');
-    return (mainBalance + savingsBalance).toFixed(6);
+    const mainBalance = parseFloat(walletBalance.mainWallet?.usdcEquivalent || '0');
+    const savingsBalance = parseFloat(walletBalance.savingsWallet?.usdcEquivalent || '0');
+    return (mainBalance + savingsBalance).toFixed(2);
+  }, [walletBalance]);
+
+  const totalUsdcBalance = useMemo(() => {
+    if (!walletBalance) return '0';
+    return walletBalance.totalUsdcEquivalent || '0';
   }, [walletBalance]);
 
   const mainBalanceFormatted = useMemo(
-    () => formatTokenAmount(walletBalance?.mainWallet?.balance ?? '0', 6),
-    [walletBalance?.mainWallet?.balance]
+    () => formatTokenAmount(walletBalance?.mainWallet?.usdcEquivalent ?? '0', 2),
+    [walletBalance?.mainWallet?.usdcEquivalent]
   );
 
   const savingsBalanceFormatted = useMemo(
-    () => formatTokenAmount(walletBalance?.savingsWallet?.balance ?? '0', 6),
-    [walletBalance?.savingsWallet?.balance]
+    () => formatTokenAmount(walletBalance?.savingsWallet?.usdcEquivalent ?? '0', 2),
+    [walletBalance?.savingsWallet?.usdcEquivalent]
   );
 
   const wallets = [
@@ -48,6 +53,7 @@ export function BalanceOverview({ className }: BalanceOverviewProps): ReactEleme
       title: 'Main Wallet',
       description: 'For daily transactions and group payments',
       balance: mainBalanceFormatted,
+      usdcEquivalent: walletBalance?.mainWallet?.usdcEquivalent || '0',
       address: walletBalance?.mainWallet?.address,
       badge: { text: 'Active', variant: 'success' as const },
       icon: <Wallet className="h-5 w-5 text-blue-400" />
@@ -57,6 +63,7 @@ export function BalanceOverview({ className }: BalanceOverviewProps): ReactEleme
       title: 'Savings Wallet',
       description: 'Automated savings with yield opportunities',
       balance: savingsBalanceFormatted,
+      usdcEquivalent: walletBalance?.savingsWallet?.usdcEquivalent || '0',
       address: walletBalance?.savingsWallet?.address,
       badge: { text: 'Yield Enabled', variant: 'outline' as const },
       icon: <TrendingUp className="h-5 w-5 text-green-400" />
@@ -88,7 +95,10 @@ export function BalanceOverview({ className }: BalanceOverviewProps): ReactEleme
           ) : (
             <div className="space-y-2">
               <p className="text-4xl font-bold text-slate-50">
-                {showBalances ? `${formatTokenAmount(totalBalance, 6)} ETH` : '••••••'}
+                {showBalances ? `$${totalUsdcBalance} USDC` : '••••••'}
+              </p>
+              <p className="text-lg text-slate-400">
+                {showBalances ? `$${formatTokenAmount(totalBalance, 2)} USD` : '••••••'}
               </p>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-cyan-400">
@@ -96,6 +106,9 @@ export function BalanceOverview({ className }: BalanceOverviewProps): ReactEleme
                 </Badge>
                 <Badge variant="outline" className="text-green-400">
                   Gasless
+                </Badge>
+                <Badge variant="outline" className="text-purple-400">
+                  Demo Rates
                 </Badge>
               </div>
             </div>
@@ -130,10 +143,10 @@ export function BalanceOverview({ className }: BalanceOverviewProps): ReactEleme
                 <>
                   <div>
                     <p className="text-3xl font-semibold text-slate-50">
-                      {showBalances ? `${wallet.balance} ETH` : '••••••'}
+                      {showBalances ? `$${wallet.usdcEquivalent} USDC` : '••••••'}
                     </p>
                     <p className="text-sm text-slate-400 mt-1">
-                      ${showBalances ? (parseFloat(wallet.balance) * 2500).toFixed(2) : '••••'} USD
+                      {showBalances ? `$${wallet.usdcEquivalent} USD` : '••••••'}
                     </p>
                   </div>
 

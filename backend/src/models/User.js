@@ -60,6 +60,19 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isEmailVerified: {
+    type: Boolean,
+    default: false,
+    comment: 'Whether email has been verified'
+  },
+  emailVerificationToken: {
+    type: String,
+    comment: 'Token for email verification'
+  },
+  emailVerificationExpires: {
+    type: Date,
+    comment: 'When email verification token expires'
+  },
   lastLogin: {
     type: Date,
     default: Date.now
@@ -68,10 +81,8 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-userSchema.index({ email: 1 });
-userSchema.index({ eoaAddress: 1 });
-userSchema.index({ address: 1 });
-userSchema.index({ savingsAddress: 1 });
+// Note: email, eoaAddress, address, and savingsAddress already have unique indexes
+// from the unique: true property, so we don't need to declare them again
 userSchema.index({ registrationType: 1 });
 
 module.exports = mongoose.model('User', userSchema);

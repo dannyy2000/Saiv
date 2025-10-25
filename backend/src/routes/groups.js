@@ -7,8 +7,9 @@ const {
   validateGroupUpdate,
   validateGroupId
 } = require('../middleware/validation');
+const { blockchainLimiter } = require('../middleware/rateLimiter');
 
-router.post('/', authMiddleware, validateGroupCreation, groupController.createGroup);
+router.post('/', authMiddleware, blockchainLimiter, validateGroupCreation, groupController.createGroup);
 
 router.get('/', authMiddleware, groupController.getUserGroups);
 
@@ -25,12 +26,13 @@ router.put('/:groupId', authMiddleware, validateGroupUpdate, groupController.upd
 // Payment window management
 router.post('/:groupId/payment-window', authMiddleware, validateGroupId, groupController.createPaymentWindow);
 router.put('/:groupId/payment-window/:windowNumber/complete', authMiddleware, validateGroupId, groupController.completePaymentWindow);
+router.post('/:groupId/windows/:windowNumber/complete', authMiddleware, validateGroupId, groupController.completePaymentWindow);
 router.get('/:groupId/payment-window/:windowNumber', authMiddleware, validateGroupId, groupController.getPaymentWindow);
 router.get('/:groupId/payment-windows', authMiddleware, validateGroupId, groupController.getPaymentWindows);
 
 // Contribution management
-router.post('/:groupId/contribute', authMiddleware, validateGroupId, groupController.contribute);
-router.post('/:groupId/contribute-token', authMiddleware, validateGroupId, groupController.contributeToken);
+router.post('/:groupId/contribute', authMiddleware, blockchainLimiter, validateGroupId, groupController.contribute);
+router.post('/:groupId/contribute-token', authMiddleware, blockchainLimiter, validateGroupId, groupController.contributeToken);
 router.get('/:groupId/contributions/:userId', authMiddleware, validateGroupId, groupController.getUserContributions);
 
 module.exports = router;

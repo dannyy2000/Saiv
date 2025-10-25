@@ -22,6 +22,15 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
+    // Check if email verification is required for email users
+    if (user.registrationType === 'email' && !user.isEmailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Email verification required.',
+        requiresVerification: true
+      });
+    }
+
     req.user = {
       userId: user._id,
       email: user.email,

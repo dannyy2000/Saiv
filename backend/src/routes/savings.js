@@ -142,6 +142,23 @@ router.get('/:savingsId', authMiddleware, validateSavingsId, savingsController.g
 // Update savings settings
 router.put('/:savingsId', authMiddleware, validateSavingsId, validateSavingsUpdate, savingsController.updateSavings);
 
+// NEW: Deposit to savings wallet and auto-supply to Aave
+// IMPORTANT: This must come BEFORE /:savingsId/deposit to avoid route collision
+const validateWalletDeposit = [
+  body('amount')
+    .isNumeric()
+    .withMessage('Amount must be a number')
+    .isFloat({ min: 0.000001 })
+    .withMessage('Amount must be greater than 0'),
+  body('asset')
+    .optional()
+    .isString()
+    .withMessage('Asset must be a string'),
+  handleValidationErrors
+];
+
+router.post('/wallet/deposit', authMiddleware, validateWalletDeposit, savingsController.depositToSavingsWallet);
+
 // Deposit to savings
 router.post('/:savingsId/deposit', authMiddleware, validateSavingsId, validateTransactionAmount, savingsController.deposit);
 
@@ -150,5 +167,8 @@ router.post('/:savingsId/withdraw', authMiddleware, validateSavingsId, validateT
 
 // Get savings transactions
 router.get('/:savingsId/transactions', authMiddleware, validateSavingsId, validateQueryParams, savingsController.getTransactions);
+
+// Get Aave yield information for all user's savings
+router.get('/aave/yield', authMiddleware, validateQueryParams, savingsController.getAaveYield);
 
 module.exports = router;

@@ -1,5 +1,5 @@
 # Environment variables (CRITICAL - NEVER COMMIT)
-.env
+contract/.env
 .env.local
 .env.*.local
 **/.env
@@ -49,6 +49,8 @@ coverage/
 *.tmp
 *.temp
 .cache/
+.claude
+
 
 # Backend specific
 backend/node_modules/
@@ -57,7 +59,6 @@ backend/*.log
 
 # Contract specific
 contract/node_modules/
-contract/.env
 contract/cache/
 contract/artifacts/
 contract/deployments/

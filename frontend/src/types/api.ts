@@ -1,6 +1,8 @@
 export interface WalletAccount {
   address?: string;
   balance?: string;
+  usdcEquivalent?: string;
+  exchangeRate?: number;
   network?: string;
   [key: string]: unknown;
 }
@@ -8,6 +10,13 @@ export interface WalletAccount {
 export interface WalletBalance {
   mainWallet?: WalletAccount;
   savingsWallet?: WalletAccount;
+  totalUsdcEquivalent?: string;
+  conversionInfo?: {
+    timestamp?: string;
+    ethRate?: number;
+    isDemo?: boolean;
+    note?: string;
+  };
 }
 
 export interface SupportedToken {

@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +16,6 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
 }
 
-export function Badge({ className, variant = 'default', ...props }: BadgeProps): JSX.Element {
+export function Badge({ className, variant = 'default', ...props }: BadgeProps): ReactElement {
   return <span className={cn('inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wide', variantMap[variant], className)} {...props} />;
 }

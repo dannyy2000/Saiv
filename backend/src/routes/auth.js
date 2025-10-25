@@ -4,6 +4,7 @@ const authController = require('../controllers/authController');
 const { authMiddleware } = require('../middleware/auth');
 const { body } = require('express-validator');
 const { handleValidationErrors } = require('../middleware/validation');
+const {createAccountLimiter } = require('../middleware/rateLimiter');
 
 const validateEmailRegistration = [
   body('email')
@@ -31,12 +32,22 @@ const validateBalanceUpdate = [
   handleValidationErrors
 ];
 
-router.post('/register/email', validateEmailRegistration, authController.registerWithEmail);
+router.post('/register/email', createAccountLimiter, validateEmailRegistration, authController.registerWithEmail);
 
-router.post('/register/wallet', validateWalletRegistration, authController.registerWithWallet);
+router.post('/register/wallet', createAccountLimiter, validateWalletRegistration, authController.registerWithWallet);
+
+// Development-only endpoints without rate limiting
+if (process.env.NODE_ENV === 'development') {
+  router.post('/dev/register/email', validateEmailRegistration, authController.registerWithEmail);
+  router.post('/dev/register/wallet', validateWalletRegistration, authController.registerWithWallet);
+}
 
 router.get('/profile', authMiddleware, authController.getProfile);
 
 router.put('/balance', authMiddleware, validateBalanceUpdate, authController.updateBalance);
+
+// Email verification routes
+router.post('/verify-email', authController.verifyEmail);
+router.post('/resend-verification', authController.resendVerification);
 
 module.exports = router;

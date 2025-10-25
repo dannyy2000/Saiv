@@ -689,6 +689,749 @@ const savingsController = {
         error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
+  },
+
+  // NEW: Deposit to savings wallet and auto-supply to Aave
+  async depositToSavingsWallet(req, res) {
+    try {
+      const { amount, asset = 'ETH' } = req.body;
+      const userId = req.user.userId;
+
+      if (!amount || parseFloat(amount) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Valid amount is required'
+        });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const contractService = require('../services/contractService');
+      const aaveService = require('../services/aaveService');
+
+      const assetAddress = asset === 'ETH' ? ethers.ZeroAddress : asset;
+      const amountWei = ethers.parseEther(amount.toString());
+
+      console.log(`💰 User ${user.email || user.eoaAddress} saving ${amount} ${asset}`);
+      console.log(`   Main Wallet: ${user.address}`);
+      console.log(`   Savings Wallet: ${user.savingsAddress}`);
+
+      // Step 1: Transfer from main wallet → savings wallet
+      console.log('📤 Step 1: Transferring from main → savings wallet...');
+
+      const mainWalletABI = [
+        "function sendEth(address payable to, uint256 amount) external",
+        "function transferToWallet(address token, address to, uint256 amount) external"
+      ];
+
+      const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+      const backendWallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
+
+      const mainWalletContract = new ethers.Contract(
+        user.address,
+        mainWalletABI,
+        backendWallet
+      );
+
+      let transferTx;
+      if (assetAddress === ethers.ZeroAddress) {
+        transferTx = await mainWalletContract.sendEth(user.savingsAddress, amountWei, {
+          gasLimit: 200000
+        });
+      } else {
+        transferTx = await mainWalletContract.transferToWallet(
+          assetAddress,
+          user.savingsAddress,
+          amountWei,
+          { gasLimit: 200000 }
+        );
+      }
+
+      console.log(`   Transfer tx: ${transferTx.hash}`);
+      await transferTx.wait();
+      console.log(`   ✅ Transfer complete`);
+
+      // Step 2: Auto-supply to Aave from savings wallet
+      console.log('📤 Step 2: Auto-supplying to Aave...');
+
+      const aaveResult = await aaveService.supplyPersonalSavingsToAave(
+        user.savingsAddress,
+        assetAddress,
+        amountWei
+      );
+
+      console.log(`   ✅ Supplied to Aave: ${aaveResult.transactionHash}`);
+
+      // Step 3: Update Savings record
+      let savings = await Savings.findOne({
+        owner: userId,
+        type: 'personal',
+        tokenAddress: assetAddress === ethers.ZeroAddress ? null : assetAddress
+      });
+
+      if (!savings) {
+        savings = new Savings({
+          name: `${asset} Savings`,
+          description: `Personal ${asset} savings with Aave yield`,
+          type: 'personal',
+          owner: userId,
+          currency: asset,
+          tokenAddress: assetAddress === ethers.ZeroAddress ? null : assetAddress,
+          targetAmount: '0',
+          currentAmount: amount.toString(),
+          aavePosition: {
+            isSupplied: true,
+            suppliedAmount: amountWei.toString(),
+            aTokenBalance: aaveResult.aTokenBalance,
+            lastSupplyTimestamp: new Date(),
+            supplyTransactions: [{
+              amount: amountWei.toString(),
+              timestamp: new Date(),
+              transactionHash: aaveResult.transactionHash,
+              type: 'supply'
+            }]
+          }
+        });
+
+        savings.addTransaction({
+          type: 'deposit',
+          amount: amount.toString(),
+          fromUser: userId,
+          description: `Deposited ${amount} ${asset} and supplied to Aave`,
+          metadata: { aaveTransactionHash: aaveResult.transactionHash }
+        });
+
+        await savings.save();
+
+        if (!user.savings.includes(savings._id)) {
+          user.savings.push(savings._id);
+          await user.save();
+        }
+      } else {
+        const newAmount = parseFloat(savings.currentAmount) + parseFloat(amount);
+        savings.currentAmount = newAmount.toString();
+
+        savings.aavePosition.isSupplied = true;
+        savings.aavePosition.suppliedAmount = (
+          BigInt(savings.aavePosition.suppliedAmount) + BigInt(amountWei)
+        ).toString();
+        savings.aavePosition.aTokenBalance = aaveResult.aTokenBalance;
+        savings.aavePosition.lastSupplyTimestamp = new Date();
+        savings.aavePosition.supplyTransactions.push({
+          amount: amountWei.toString(),
+          timestamp: new Date(),
+          transactionHash: aaveResult.transactionHash,
+          type: 'supply'
+        });
+
+        savings.addTransaction({
+          type: 'deposit',
+          amount: amount.toString(),
+          fromUser: userId,
+          description: `Deposited ${amount} ${asset} and supplied to Aave`,
+          metadata: { aaveTransactionHash: aaveResult.transactionHash }
+        });
+
+        await savings.save();
+      }
+
+      const currentYield = await aaveService.getAaveYield(user.savingsAddress, assetAddress);
+
+      res.status(200).json({
+        success: true,
+        message: 'Successfully deposited to savings and supplied to Aave',
+        data: {
+          savings: {
+            id: savings._id,
+            name: savings.name,
+            currentAmount: savings.currentAmount,
+            currency: asset,
+            aavePosition: {
+              isSupplied: true,
+              suppliedAmount: ethers.formatEther(savings.aavePosition.suppliedAmount),
+              aTokenBalance: ethers.formatEther(savings.aavePosition.aTokenBalance),
+              currentYield: ethers.formatEther(currentYield)
+            }
+          },
+          transactions: {
+            transfer: transferTx.hash,
+            aaveSupply: aaveResult.transactionHash
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Deposit to savings wallet error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to deposit to savings',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  },
+
+  // NEW: Get Aave yield information for user's savings
+  async getAaveYield(req, res) {
+    try {
+      const userId = req.user.userId;
+      const { type } = req.query; // 'personal' or 'group'
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      const aaveService = require('../services/aaveService');
+
+      // Query for savings with Aave positions
+      let query = {
+        owner: userId,
+        'aavePosition.isSupplied': true
+      };
+
+      if (type) {
+        query.type = type;
+      }
+
+      const savings = await Savings.find(query)
+        .populate('owner', 'email address savingsAddress')
+        .populate('group', 'name address');
+
+      const yieldData = await Promise.all(savings.map(async (saving) => {
+        let walletAddress;
+
+        // Determine wallet address based on savings type
+        if (saving.type === 'personal') {
+          walletAddress = user.savingsAddress;
+        } else if (saving.type === 'group' && saving.group) {
+          walletAddress = saving.group.address;
+        } else {
+          return null;
+        }
+
+        if (!walletAddress) return null;
+
+        const assetAddress = saving.tokenAddress || ethers.ZeroAddress;
+
+        try {
+          // Get current aToken balance and yield
+          const aTokenBalance = await aaveService.getATokenBalance(walletAddress, assetAddress);
+          const currentYield = await aaveService.getAaveYield(walletAddress, assetAddress);
+
+          // Calculate APY (simplified - would need historical data for accurate calculation)
+          const suppliedAmount = BigInt(saving.aavePosition.suppliedAmount);
+          const yieldAmount = BigInt(currentYield);
+
+          let estimatedAPY = 0;
+          if (suppliedAmount > 0n && saving.aavePosition.lastSupplyTimestamp) {
+            const timeElapsed = Date.now() - new Date(saving.aavePosition.lastSupplyTimestamp).getTime();
+            const daysElapsed = timeElapsed / (1000 * 60 * 60 * 24);
+
+            if (daysElapsed > 0) {
+              const yieldPercentage = Number(yieldAmount * 10000n / suppliedAmount) / 100;
+              estimatedAPY = (yieldPercentage / daysElapsed) * 365;
+            }
+          }
+
+          return {
+            savingsId: saving._id,
+            name: saving.name,
+            type: saving.type,
+            currency: saving.currency,
+            walletAddress: walletAddress,
+            aavePosition: {
+              suppliedAmount: ethers.formatEther(saving.aavePosition.suppliedAmount),
+              aTokenBalance: ethers.formatEther(aTokenBalance),
+              currentYield: ethers.formatEther(currentYield),
+              estimatedAPY: estimatedAPY.toFixed(2),
+              lastSupplyTimestamp: saving.aavePosition.lastSupplyTimestamp,
+              supplyTransactionsCount: saving.aavePosition.supplyTransactions?.length || 0
+            }
+          };
+        } catch (err) {
+          console.error(`Error fetching yield for savings ${saving._id}:`, err);
+          return {
+            savingsId: saving._id,
+            name: saving.name,
+            type: saving.type,
+            error: 'Failed to fetch yield data'
+          };
+        }
+      }));
+
+      // Filter out null results
+      const validYieldData = yieldData.filter(d => d !== null);
+
+      // Calculate total yield across all savings
+      const totalYield = validYieldData.reduce((sum, data) => {
+        if (data.aavePosition?.currentYield) {
+          return sum + parseFloat(data.aavePosition.currentYield);
+        }
+        return sum;
+      }, 0);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          savings: validYieldData,
+          summary: {
+            totalSavingsWithYield: validYieldData.length,
+            totalYieldEarned: totalYield.toFixed(6),
+            currency: 'ETH' // Simplified - would need to handle multiple currencies
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Get Aave yield error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve Aave yield information',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
+  },
+
+  // ============================================
+  // PERSONAL SAVINGS LOCK FUNCTIONALITY
+  // ============================================
+
+  // Create a new savings lock
+  async createSavingsLock(req, res) {
+    try {
+      const { validationResult } = require('express-validator');
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      const { walletAddress, asset, assetSymbol, amount, lockPeriodDays, autoWithdraw } = req.body;
+      const userId = req.user.userId;
+
+      console.log('Creating savings lock', { userId, walletAddress, asset, amount });
+
+      const savingsService = require('../services/savingsService');
+
+      if (!savingsService.isInitialized) {
+        await savingsService.initialize();
+      }
+
+      const result = await savingsService.createSavingsLock({
+        userId,
+        walletAddress,
+        asset,
+        assetSymbol,
+        amount,
+        lockPeriodDays,
+        autoWithdraw
+      });
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to create savings lock',
+          error: result.error
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'Savings lock created successfully',
+        data: {
+          savingsLock: result.savingsLock,
+          txHash: result.txHash
+        }
+      });
+
+    } catch (error) {
+      console.error('Error creating savings lock', {
+        userId: req.user?.userId,
+        error: error.message,
+        stack: error.stack
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get user's active savings locks
+  async getUserActiveLocks(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      console.log('Getting user active locks', { userId });
+
+      const savingsService = require('../services/savingsService');
+
+      if (!savingsService.isInitialized) {
+        await savingsService.initialize();
+      }
+
+      const result = await savingsService.getUserActiveLocks(userId);
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to get active locks',
+          error: result.error
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Active locks retrieved successfully',
+        data: {
+          locks: result.locks
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting user active locks', {
+        userId: req.user?.userId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get user's savings lock history
+  async getUserSavingsLockHistory(req, res) {
+    try {
+      const userId = req.user.userId;
+      const limit = parseInt(req.query.limit) || 20;
+
+      console.log('Getting user savings lock history', { userId, limit });
+
+      const savingsService = require('../services/savingsService');
+
+      if (!savingsService.isInitialized) {
+        await savingsService.initialize();
+      }
+
+      const result = await savingsService.getUserSavingsHistory(userId, limit);
+
+      if (!result.success) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to get savings history',
+          error: result.error
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Savings lock history retrieved successfully',
+        data: {
+          history: result.history
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting user savings lock history', {
+        userId: req.user?.userId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get savings lock details by ID
+  async getSavingsLockDetails(req, res) {
+    try {
+      const { lockId } = req.params;
+      const userId = req.user.userId;
+
+      console.log('Getting savings lock details', { userId, lockId });
+
+      const SavingsLock = require('../models/SavingsLock');
+      const lock = await SavingsLock.findOne({ _id: lockId, userId });
+
+      if (!lock) {
+        return res.status(404).json({
+          success: false,
+          message: 'Savings lock not found'
+        });
+      }
+
+      // Update yield if it's an active lock
+      if (lock.status === 'active') {
+        try {
+          const savingsService = require('../services/savingsService');
+
+          if (!savingsService.isInitialized) {
+            await savingsService.initialize();
+          }
+
+          await savingsService.updateLockYield(lock);
+          // Refresh the lock to get updated yield
+          await lock.reload();
+        } catch (error) {
+          console.warn('Failed to update lock yield', { lockId, error: error.message });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: 'Savings lock details retrieved successfully',
+        data: {
+          lock
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting savings lock details', {
+        userId: req.user?.userId,
+        lockId: req.params.lockId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Update auto-withdrawal settings for a savings lock
+  async updateAutoWithdrawSettings(req, res) {
+    try {
+      const { validationResult } = require('express-validator');
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      const { lockId } = req.params;
+      const { autoWithdraw } = req.body;
+      const userId = req.user.userId;
+
+      console.log('Updating auto-withdraw settings', { userId, lockId, autoWithdraw });
+
+      const SavingsLock = require('../models/SavingsLock');
+      const lock = await SavingsLock.findOne({ _id: lockId, userId });
+
+      if (!lock) {
+        return res.status(404).json({
+          success: false,
+          message: 'Savings lock not found'
+        });
+      }
+
+      if (lock.status !== 'active') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot update settings for non-active lock'
+        });
+      }
+
+      lock.autoWithdraw = autoWithdraw;
+      await lock.save();
+
+      res.json({
+        success: true,
+        message: 'Auto-withdraw settings updated successfully',
+        data: {
+          lock
+        }
+      });
+
+    } catch (error) {
+      console.error('Error updating auto-withdraw settings', {
+        userId: req.user?.userId,
+        lockId: req.params.lockId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Manually withdraw from savings (for expired locks)
+  async withdrawFromSavingsLock(req, res) {
+    try {
+      const { validationResult } = require('express-validator');
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation failed',
+          errors: errors.array()
+        });
+      }
+
+      const { lockId } = req.params;
+      const { destination = 'main_wallet' } = req.body; // 'main_wallet' or 'relock'
+      const userId = req.user.userId;
+
+      console.log('Manual withdrawal from savings lock', { userId, lockId, destination });
+
+      const SavingsLock = require('../models/SavingsLock');
+      const lock = await SavingsLock.findOne({ _id: lockId, userId });
+
+      if (!lock) {
+        return res.status(404).json({
+          success: false,
+          message: 'Savings lock not found'
+        });
+      }
+
+      if (lock.status !== 'expired' && !lock.isExpired()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Lock has not expired yet'
+        });
+      }
+
+      if (lock.processed) {
+        return res.status(400).json({
+          success: false,
+          message: 'Lock has already been processed'
+        });
+      }
+
+      // Process the expired lock
+      const savingsService = require('../services/savingsService');
+
+      if (!savingsService.isInitialized) {
+        await savingsService.initialize();
+      }
+
+      await savingsService.processExpiredLock(lock);
+
+      res.json({
+        success: true,
+        message: 'Withdrawal processed successfully',
+        data: {
+          lock: await SavingsLock.findById(lockId) // Return updated lock
+        }
+      });
+
+    } catch (error) {
+      console.error('Error processing manual withdrawal', {
+        userId: req.user?.userId,
+        lockId: req.params.lockId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to process withdrawal',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get savings lock statistics for user
+  async getSavingsLockStats(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      console.log('Getting savings lock statistics', { userId });
+
+      const SavingsLock = require('../models/SavingsLock');
+      const stats = await SavingsLock.getSavingsStats(userId);
+
+      res.json({
+        success: true,
+        message: 'Savings lock statistics retrieved successfully',
+        data: {
+          stats
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting savings lock statistics', {
+        userId: req.user?.userId,
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
+  },
+
+  // Get current savings yields and rates
+  async getSavingsRates(req, res) {
+    try {
+      // This would typically fetch current Aave rates
+      // For now, return mock data
+      const rates = {
+        ETH: {
+          apy: 3.25,
+          symbol: 'ETH',
+          name: 'Ethereum'
+        },
+        USDC: {
+          apy: 4.15,
+          symbol: 'USDC',
+          name: 'USD Coin'
+        },
+        USDT: {
+          apy: 4.08,
+          symbol: 'USDT',
+          name: 'Tether USD'
+        }
+      };
+
+      res.json({
+        success: true,
+        message: 'Savings rates retrieved successfully',
+        data: {
+          rates,
+          lastUpdated: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('Error getting savings rates', {
+        error: error.message
+      });
+
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    }
   }
 };
 

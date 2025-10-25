@@ -10,8 +10,8 @@ interface SignInGateProps {
 }
 
 export function SignInGate({
-  heading = 'Connect to continue',
-  description = 'Sign in with email or wallet to unlock Saiv\'s gasless savings, group coordination, and wallet automations.',
+  heading = 'Sign in to continue',
+  description = 'Enter your email to unlock Saiv\'s gasless savings, group coordination, and wallet automations.',
 }: SignInGateProps): ReactElement {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">

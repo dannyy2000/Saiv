@@ -25,22 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 }
 
 export function useAuth(): AuthContextValue {
-  // If Thirdweb client is not configured, avoid calling thirdweb hooks
-  if (!client) {
-    return {
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      isLoading: false,
-      requiresVerification: false,
-      verificationEmail: null,
-      signOut: async () => {},
-      refreshProfile: async () => null,
-      signInWithEmail: async (_email: string) => false,
-      resendVerification: async (_email: string) => false,
-    };
-  }
-
+  // Always call hooks first, then handle the conditional logic
   const account = useActiveAccount();
   const wallet = useActiveWallet();
 
@@ -70,13 +55,29 @@ export function useAuth(): AuthContextValue {
     return user;
   }, [user]);
 
-  const signInWithEmail = useCallback(async (_email: string): Promise<boolean> => {
+  const signInWithEmail = useCallback(async (email: string): Promise<boolean> => {
     return false;
   }, []);
 
-  const resendVerification = useCallback(async (_email: string): Promise<boolean> => {
+  const resendVerification = useCallback(async (email: string): Promise<boolean> => {
     return false;
   }, []);
+
+  // If Thirdweb client is not configured, return default values but still with working functions
+  if (!client) {
+    return {
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      requiresVerification: false,
+      verificationEmail: null,
+      signOut,
+      refreshProfile,
+      signInWithEmail,
+      resendVerification,
+    };
+  }
 
   return {
     user,

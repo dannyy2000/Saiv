@@ -51,13 +51,13 @@ export function Providers({ children }: { children: React.ReactNode }): ReactEle
       }
     }, [account?.address, router]);
 
-    return null;
+    return <></>;
   }
 
   return (
     <QueryClientProvider client={queryClient}>
       {client ? (
-        <ThirdwebProvider client={client} chains={supportedChains}>
+        <ThirdwebProvider>
           {/* Networks: Lisk & Lisk Sepolia are defined in src/lib/thirdweb.ts: `export const supportedChains`. Update there to change networks. */}
           <AuthProvider>
             <RedirectOnConnect />

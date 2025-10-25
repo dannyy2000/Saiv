@@ -1,10 +1,11 @@
 // Thirdweb client and wallets configuration for Saiv
 import { createThirdwebClient, defineChain } from "thirdweb";
 import { inAppWallet, createWallet } from "thirdweb/wallets";
+import type { ThirdwebClient } from "thirdweb";
 
 export const clientId = process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID;
 
-export const client = clientId ? createThirdwebClient({ clientId }) : undefined as any;
+export const client: ThirdwebClient | null = clientId ? createThirdwebClient({ clientId }) : null;
 
 // Supported networks for the app.
 // To change networks later, edit this array. Example: add/remove chains from supportedChains.

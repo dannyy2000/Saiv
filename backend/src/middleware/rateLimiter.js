@@ -92,12 +92,13 @@ const passwordResetLimiter = rateLimit({
 // Create account limiter (very strict)
 const createAccountLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // Limit each IP to 3 account creation attempts per hour
+  max: 10, // Limit each IP to 10 account creation attempts per hour (increased from 3)
   message: {
     success: false,
     message: 'Too many accounts created from this IP, please try again later.',
     code: 'ACCOUNT_CREATION_RATE_LIMIT_EXCEEDED'
   },
+  skipSuccessfulRequests: true, // Don't count successful requests (existing user login, successful registration)
   handler: (req, res, next) => {
     const resetTime = new Date(Date.now() + req.rateLimit.resetTime);
     const error = new RateLimitError(

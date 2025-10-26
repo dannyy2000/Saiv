@@ -33,8 +33,8 @@ export function EmailVerificationNotice({ email, onClose }: EmailVerificationNot
           </h3>
           <div className="mt-2 text-sm text-yellow-700">
             <p>
-              We&apos;ve sent a verification email to <strong>{email}</strong>.
-              Please check your inbox and click the verification link to complete your registration.
+              We&apos;ve sent a 6-digit verification code to <strong>{email}</strong>.
+              Please check your inbox and enter the code on the verification page to complete your registration.
             </p>
           </div>
           <div className="mt-4 flex space-x-3">
@@ -45,7 +45,7 @@ export function EmailVerificationNotice({ email, onClose }: EmailVerificationNot
               size="sm"
               className="bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200"
             >
-              {isResending ? 'Sending...' : 'Resend Email'}
+              {isResending ? 'Sending...' : 'Resend Code'}
             </Button>
             {onClose && (
               <Button

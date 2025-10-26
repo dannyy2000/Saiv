@@ -23,13 +23,14 @@ const authController = {
       if (user) {
         // If user exists but email not verified, resend verification
         if (!user.isEmailVerified) {
-          const verificationToken = crypto.randomBytes(32).toString('hex');
-          user.emailVerificationToken = verificationToken;
-          user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+          // Generate 6-digit OTP
+          const verificationOTP = Math.floor(100000 + Math.random() * 900000).toString();
+          user.emailVerificationToken = verificationOTP;
+          user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
           await user.save();
 
-          // Send verification email
-          await authController.sendVerificationEmail(user.email, verificationToken);
+          // Send verification email with OTP
+          await authController.sendVerificationEmail(user.email, verificationOTP);
 
           return res.status(200).json({
             success: true,
@@ -76,9 +77,9 @@ const authController = {
         });
       }
 
-      // Generate email verification token
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-      const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      // Generate 6-digit OTP for email verification
+      const verificationOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      const tokenExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
       // Create a temporary user identifier for email users
       const tempUserIdentifier = ethers.Wallet.createRandom().address;
@@ -104,7 +105,7 @@ const authController = {
         savingsAddress: wallets.savingsWallet,
         registrationType: 'email',
         isEmailVerified: false,
-        emailVerificationToken: verificationToken,
+        emailVerificationToken: verificationOTP,
         emailVerificationExpires: tokenExpiry,
         profile: {
           name: email.split('@')[0]
@@ -115,8 +116,8 @@ const authController = {
 
       console.log(`Created email user ${email} -> main wallet: ${user.address}, savings wallet: ${user.savingsAddress}`);
 
-      // Send verification email
-      await authController.sendVerificationEmail(email.toLowerCase(), verificationToken);
+      // Send verification email with OTP
+      await authController.sendVerificationEmail(email.toLowerCase(), verificationOTP);
 
       res.status(201).json({
         success: true,
@@ -346,19 +347,17 @@ const authController = {
     }
   },
 
-  async sendVerificationEmail(email, token) {
+  async sendVerificationEmail(email, otp) {
     try {
       console.log(`🚀 Starting sendVerificationEmail for: ${email}`);
-      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
 
-      // Log verification link for testing purposes
+      // Log OTP for testing purposes
       console.log('='.repeat(80));
-      console.log('📧 EMAIL VERIFICATION LINK');
+      console.log('📧 EMAIL VERIFICATION OTP');
       console.log('='.repeat(80));
       console.log(`📮 Email: ${email}`);
-      console.log(`🔗 Verification Link: ${verificationUrl}`);
-      console.log(`🎫 Token: ${token}`);
-      console.log(`⏰ Expires: ${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}`);
+      console.log(`🔢 OTP Code: ${otp}`);
+      console.log(`⏰ Expires: ${new Date(Date.now() + 15 * 60 * 1000).toISOString()} (15 minutes)`);
       console.log('='.repeat(80));
 
       const emailContent = {
@@ -372,22 +371,20 @@ const authController = {
 
             <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
               <h2 style="color: #1e293b; margin-top: 0;">Verify Your Email Address</h2>
-              <p style="color: #475569; line-height: 1.6;">Thanks for signing up! To complete your registration and start your gasless Web3 savings journey, please verify your email address.</p>
+              <p style="color: #475569; line-height: 1.6;">Thanks for signing up! To complete your registration and start your gasless Web3 savings journey, please enter this verification code:</p>
             </div>
 
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}" style="background: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Verify Email Address</a>
+              <div style="background: #2563eb; color: white; padding: 20px 40px; border-radius: 12px; display: inline-block;">
+                <p style="margin: 0; font-size: 14px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px;">Your Verification Code</p>
+                <p style="margin: 10px 0 0 0; font-size: 36px; font-weight: bold; letter-spacing: 8px; font-family: 'Courier New', monospace;">${otp}</p>
+              </div>
             </div>
 
             <div style="background: #fef3c7; border: 1px solid #f59e0b; padding: 15px; border-radius: 6px; margin: 20px 0;">
               <p style="margin: 0; color: #92400e; font-size: 14px;">
-                ⚠️ This link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
+                ⚠️ This code will expire in 15 minutes. If you didn't create an account, you can safely ignore this email.
               </p>
-            </div>
-
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-              <p style="color: #64748b; font-size: 14px; margin: 0;">If the button doesn't work, copy and paste this link into your browser:</p>
-              <p style="color: #3b82f6; font-size: 14px; word-break: break-all; margin: 5px 0 0 0;">${verificationUrl}</p>
             </div>
 
             <div style="text-align: center; margin-top: 30px; color: #64748b; font-size: 14px;">
@@ -400,6 +397,14 @@ const authController = {
       console.log(`📤 Attempting to send email via notificationService...`);
       const result = await notificationService.sendEmail(emailContent);
       console.log(`📧 Email send result:`, result);
+
+      // Check if email was sent successfully
+      if (!result || !result.success) {
+        const errorMsg = result?.error || 'Unknown error occurred';
+        console.error(`❌ Email send failed for ${email}:`, errorMsg);
+        throw new Error(`Failed to send verification email: ${errorMsg}`);
+      }
+
       console.log(`✅ Verification email sent to ${email}`);
     } catch (error) {
       console.error('❌ Failed to send verification email:', error);
@@ -410,24 +415,25 @@ const authController = {
 
   async verifyEmail(req, res) {
     try {
-      const { token } = req.body;
+      const { otp, token } = req.body;
+      const verificationCode = otp || token; // Support both OTP and token for backward compatibility
 
-      if (!token) {
+      if (!verificationCode) {
         return res.status(400).json({
           success: false,
-          message: 'Verification token is required'
+          message: 'Verification code is required'
         });
       }
 
       const user = await User.findOne({
-        emailVerificationToken: token,
+        emailVerificationToken: verificationCode,
         emailVerificationExpires: { $gt: new Date() }
       });
 
       if (!user) {
         return res.status(400).json({
           success: false,
-          message: 'Invalid or expired verification token'
+          message: 'Invalid or expired verification code'
         });
       }
 
@@ -507,14 +513,14 @@ const authController = {
         });
       }
 
-      // Generate new verification token
-      const verificationToken = crypto.randomBytes(32).toString('hex');
-      user.emailVerificationToken = verificationToken;
-      user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      // Generate new 6-digit OTP
+      const verificationOTP = Math.floor(100000 + Math.random() * 900000).toString();
+      user.emailVerificationToken = verificationOTP;
+      user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
       await user.save();
 
-      // Send verification email
-      await authController.sendVerificationEmail(user.email, verificationToken);
+      // Send verification email with OTP
+      await authController.sendVerificationEmail(user.email, verificationOTP);
 
       res.status(200).json({
         success: true,

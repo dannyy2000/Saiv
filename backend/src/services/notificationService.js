@@ -1,6 +1,7 @@
 const sgMail = require('@sendgrid/mail');
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
+const axios = require('axios');
 const logger = require('../utils/logger');
 const notificationTemplates = require('./notificationTemplates');
 const NotificationPreference = require('../models/NotificationPreference');
@@ -76,7 +77,31 @@ class NotificationService {
         break;
 
       case 'brevo':
-        if (process.env.BREVO_SMTP_HOST && process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_PASS) {
+        // Prefer API over SMTP (API is more reliable)
+        if (process.env.BREVO_API_KEY) {
+          try {
+            // Test API connection
+            const response = await axios.get('https://api.brevo.com/v3/account', {
+              headers: {
+                'api-key': process.env.BREVO_API_KEY,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            this.emailProvider = 'brevo-api';
+            this.brevoApiKey = process.env.BREVO_API_KEY;
+            logger.info('Brevo API service initialized and verified', {
+              email: response.data.email,
+              plan: response.data.plan?.type || 'Unknown'
+            });
+          } catch (error) {
+            logger.error('Brevo API verification failed:', error.response?.data?.message || error.message);
+            logger.error('Falling back to SMTP if configured...');
+          }
+        }
+
+        // Fallback to SMTP if API not configured or failed
+        if (!this.emailProvider && process.env.BREVO_SMTP_HOST && process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_PASS) {
           this.emailTransporter = nodemailer.createTransport({
             host: process.env.BREVO_SMTP_HOST,
             port: parseInt(process.env.BREVO_SMTP_PORT) || 587,
@@ -86,10 +111,21 @@ class NotificationService {
               pass: process.env.BREVO_SMTP_PASS
             }
           });
-          this.emailProvider = 'brevo';
-          logger.info('Brevo SMTP service initialized');
-        } else {
-          logger.warn('Brevo SMTP credentials not configured');
+
+          // Verify SMTP connection
+          try {
+            await this.emailTransporter.verify();
+            this.emailProvider = 'brevo-smtp';
+            logger.info('Brevo SMTP service initialized and verified');
+          } catch (error) {
+            logger.error('Brevo SMTP verification failed:', error.message);
+            logger.error('Please check your BREVO_SMTP credentials and ensure the sender email is verified in Brevo');
+            this.emailTransporter = null;
+          }
+        }
+
+        if (!this.emailProvider) {
+          logger.warn('Brevo credentials not configured (neither API nor SMTP)');
         }
         break;
 
@@ -224,7 +260,40 @@ class NotificationService {
           result = await sgMail.send(emailData);
           break;
 
-        case 'brevo':
+        case 'brevo-api':
+          // Use Brevo API
+          const apiEmailData = {
+            sender: {
+              name: emailData.from.name,
+              email: emailData.from.email
+            },
+            to: [{
+              email: emailData.to,
+              name: emailData.to
+            }],
+            subject: emailData.subject,
+            htmlContent: emailData.html,
+            textContent: emailData.text
+          };
+
+          if (emailData.replyTo) {
+            apiEmailData.replyTo = {
+              email: emailData.replyTo
+            };
+          }
+
+          const apiResponse = await axios.post('https://api.brevo.com/v3/smtp/email', apiEmailData, {
+            headers: {
+              'api-key': this.brevoApiKey,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          result = { messageId: apiResponse.data.messageId };
+          break;
+
+        case 'brevo-smtp':
+          // Use Brevo SMTP
           const mailOptions = {
             from: `${emailData.from.name} <${emailData.from.email}>`,
             to: emailData.to,

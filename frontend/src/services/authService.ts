@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { setAuthToken as setApiClientToken, getAuthToken as getApiClientToken, clearAuthToken as clearApiClientToken } from '@/lib/apiClient';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api';
 
@@ -34,35 +35,40 @@ class AuthService {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('authToken');
+      // Use apiClient's token management
+      this.token = getApiClientToken();
     }
   }
 
   setAuthToken(token: string) {
     this.token = token;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('authToken', token);
-    }
+    // Use apiClient's setAuthToken to ensure consistency
+    setApiClientToken(token);
   }
 
   getAuthToken(): string | null {
-    return this.token;
+    // Use apiClient's token
+    return getApiClientToken();
   }
 
   removeAuthToken() {
     this.token = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('authToken');
-    }
+    // Use apiClient's clearAuthToken
+    clearApiClientToken();
   }
 
   private getAuthHeaders() {
-    return this.token ? { Authorization: `Bearer ${this.token}` } : {};
+    const token = getApiClientToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
   async registerWithEmail(email: string): Promise<AuthResponse> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/register/email`, {
+      // Use dev endpoint in development to bypass rate limiting
+      const isDev = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_ENV === 'development';
+      const endpoint = isDev ? '/auth/dev/register/email' : '/auth/register/email';
+
+      const response = await axios.post(`${API_BASE_URL}${endpoint}`, {
         email
       });
 
@@ -94,10 +100,10 @@ class AuthService {
     }
   }
 
-  async verifyEmail(token: string): Promise<AuthResponse> {
+  async verifyEmail(otp: string): Promise<AuthResponse> {
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/verify-email`, {
-        token
+        otp  // Send as OTP instead of token
       });
 
       if (response.data.success && response.data.data?.token) {

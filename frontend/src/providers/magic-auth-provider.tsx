@@ -125,7 +125,12 @@ export function MagicAuthProvider({ children }: { children: React.ReactNode }): 
         if (response.data?.requiresVerification) {
           setRequiresVerification(true);
           setVerificationEmail(response.data.email || email);
-          toast.success('Please check your email to verify your account');
+          toast.success('Please check your email for the verification code');
+
+          // Redirect to verification page
+          if (typeof window !== 'undefined') {
+            window.location.href = '/verify-email';
+          }
           return false; // Don't redirect to dashboard
         }
 

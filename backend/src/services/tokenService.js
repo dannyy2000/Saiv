@@ -26,12 +26,25 @@ class TokenService {
 
       this.backendWallet = new ethers.Wallet(privateKey, this.provider);
 
-      // Get chain ID
-      const network = await this.provider.getNetwork();
-      this.chainId = network.chainId.toString();
+      // Get chain ID - use environment variable to avoid ENS lookups on L2s
+      if (process.env.CHAIN_ID) {
+        this.chainId = process.env.CHAIN_ID;
+        console.log(`✅ Token Service initialized for chain ID: ${this.chainId} (from env)`);
+      } else {
+        try {
+          // Fallback to network detection (may fail on L2s without ENS)
+          const network = await this.provider.getNetwork();
+          this.chainId = network.chainId.toString();
+          console.log(`✅ Token Service initialized for chain ID: ${this.chainId} (detected)`);
+        } catch (error) {
+          console.warn('Could not detect network (ENS not supported on this network). Please set CHAIN_ID in .env');
+          // Default to Optimism Sepolia if detection fails
+          this.chainId = '11155420';
+          console.log(`⚠️ Token Service using default chain ID: ${this.chainId}`);
+        }
+      }
 
       this.isInitialized = true;
-      console.log(`✅ Token Service initialized for chain ID: ${this.chainId}`);
 
       return true;
     } catch (error) {

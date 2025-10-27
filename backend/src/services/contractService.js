@@ -99,15 +99,11 @@ class ContractService {
   }
 
   async createUserWallets(userIdentifier) {
-    try {
-      if (!this.addressManagerContract) {
-        console.warn('Contract not available, creating mock wallets');
-        return {
-          mainWallet: '0x' + Math.random().toString(16).substr(2, 40),
-          savingsWallet: '0x' + Math.random().toString(16).substr(2, 40)
-        };
-      }
+    if (!this.addressManagerContract) {
+      throw new Error('AddressManager contract not initialized. Cannot create wallets without blockchain connection.');
+    }
 
+    try {
       const tx = await this.addressManagerContract.createUserWallets(userIdentifier);
       const receipt = await tx.wait();
 
@@ -115,34 +111,32 @@ class ContractService {
         log.topics[0] === ethers.id("UserWalletsCreated(address,address,address)")
       );
 
-      if (event) {
-        const decoded = this.addressManagerContract.interface.parseLog(event);
-        return {
-          mainWallet: decoded.args.mainWallet,
-          savingsWallet: decoded.args.savingsWallet
-        };
+      if (!event) {
+        throw new Error('Wallet creation transaction succeeded but event not found in logs');
       }
 
-      return null;
-    } catch (error) {
-      console.warn('Error creating user wallets:', error.message);
+      const decoded = this.addressManagerContract.interface.parseLog(event);
+
+      if (!decoded.args.mainWallet || !decoded.args.savingsWallet) {
+        throw new Error('Invalid wallet addresses returned from contract');
+      }
+
       return {
-        mainWallet: '0x' + Math.random().toString(16).substr(2, 40),
-        savingsWallet: '0x' + Math.random().toString(16).substr(2, 40)
+        mainWallet: decoded.args.mainWallet,
+        savingsWallet: decoded.args.savingsWallet
       };
+    } catch (error) {
+      console.error('Failed to create user wallets:', error.message);
+      throw new Error(`Wallet creation failed: ${error.message}`);
     }
   }
 
   async createEmailUserWallets(emailHash, userIdentifier) {
-    try {
-      if (!this.addressManagerContract) {
-        console.warn('Contract not available, creating mock wallets');
-        return {
-          mainWallet: '0x' + Math.random().toString(16).substr(2, 40),
-          savingsWallet: '0x' + Math.random().toString(16).substr(2, 40)
-        };
-      }
+    if (!this.addressManagerContract) {
+      throw new Error('AddressManager contract not initialized. Cannot create wallets without blockchain connection.');
+    }
 
+    try {
       const tx = await this.addressManagerContract.createEmailUserWallets(emailHash, userIdentifier);
       const receipt = await tx.wait();
 
@@ -150,21 +144,23 @@ class ContractService {
         log.topics[0] === ethers.id("EmailUserWalletsCreated(bytes32,address,address)")
       );
 
-      if (event) {
-        const decoded = this.addressManagerContract.interface.parseLog(event);
-        return {
-          mainWallet: decoded.args.mainWallet,
-          savingsWallet: decoded.args.savingsWallet
-        };
+      if (!event) {
+        throw new Error('Wallet creation transaction succeeded but event not found in logs');
       }
 
-      return null;
-    } catch (error) {
-      console.warn('Error creating email user wallets:', error.message);
+      const decoded = this.addressManagerContract.interface.parseLog(event);
+
+      if (!decoded.args.mainWallet || !decoded.args.savingsWallet) {
+        throw new Error('Invalid wallet addresses returned from contract');
+      }
+
       return {
-        mainWallet: '0x' + Math.random().toString(16).substr(2, 40),
-        savingsWallet: '0x' + Math.random().toString(16).substr(2, 40)
+        mainWallet: decoded.args.mainWallet,
+        savingsWallet: decoded.args.savingsWallet
       };
+    } catch (error) {
+      console.error('Failed to create email user wallets:', error.message);
+      throw new Error(`Wallet creation failed: ${error.message}`);
     }
   }
 

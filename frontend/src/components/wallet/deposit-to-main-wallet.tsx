@@ -33,7 +33,7 @@ export function DepositToMainWallet({ mainWalletAddress, supportedTokens = [] }:
       setCopied(true);
       toast.success('Address copied to clipboard!');
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       toast.error('Failed to copy address');
     }
   };
@@ -75,8 +75,8 @@ export function DepositToMainWallet({ mainWalletAddress, supportedTokens = [] }:
               <div className="space-y-2">
                 <p className="text-sm font-medium text-yellow-200">Wallet Not Created Yet</p>
                 <p className="text-xs text-yellow-100/80">
-                  Your smart contract wallet hasn't been deployed yet. This happens automatically when you first register.
-                  If you're seeing this message, there may be a network connectivity issue with the backend.
+                  Your smart contract wallet hasn&apos;t been deployed yet. This happens automatically when you first register.
+                  If you&apos;re seeing this message, there may be a network connectivity issue with the backend.
                 </p>
                 <p className="text-xs text-yellow-100/80">
                   Please contact support or try refreshing the page.

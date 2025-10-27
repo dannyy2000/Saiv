@@ -15,7 +15,7 @@ import { fetchWalletBalance } from '@/services/api/wallet';
 import { fetchGroups } from '@/services/api/groups';
 import { fetchSavings } from '@/services/api/savings';
 import type { Group, SavingsGoal, WalletBalance } from '@/types/api';
-import { formatTokenAmount, truncateAddress } from '@/lib/utils';
+import { formatTokenAmount } from '@/lib/utils';
 
 export default function DashboardPage(): ReactElement {
   const TOKEN_SYMBOL = 'USDC';

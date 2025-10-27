@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchWalletBalance } from '@/services/api/wallet';
-import { formatTokenAmount, truncateAddress } from '@/lib/utils';
+import { formatTokenAmount } from '@/lib/utils';
 import type { WalletBalance } from '@/types/api';
 import { useState } from 'react';
 

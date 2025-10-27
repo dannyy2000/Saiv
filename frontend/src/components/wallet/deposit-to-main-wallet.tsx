@@ -164,7 +164,7 @@ export function DepositToMainWallet({ mainWalletAddress, supportedTokens = [] }:
               {supportedTokens.map((token) => (
                 <Badge
                   key={token.address}
-                  variant="secondary"
+                  variant="default"
                   className="bg-slate-800 hover:bg-slate-700"
                 >
                   {token.symbol}

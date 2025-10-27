@@ -1,9 +1,18 @@
+export interface StablecoinBalance {
+  address: string;
+  symbol: string;
+  decimals: number;
+  balance: string;
+  formatted: string;
+}
+
 export interface WalletAccount {
   address?: string;
   balance?: string;
   usdcEquivalent?: string;
   exchangeRate?: number;
   network?: string;
+  stablecoins?: StablecoinBalance[];
   [key: string]: unknown;
 }
 
@@ -25,6 +34,7 @@ export interface SupportedToken {
   decimals: number;
   name?: string;
   logoURI?: string;
+  aaveSupported?: boolean;
   [key: string]: unknown;
 }
 

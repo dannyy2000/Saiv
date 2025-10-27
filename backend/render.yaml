@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: saiv-backend
+    env: node
+    region: oregon # You can change this to a region closer to you
+    plan: free # Change to 'starter' or higher for production
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Database - You'll need to add your MongoDB Atlas URI
+      - key: MONGODB_URI
+        sync: false # Set this manually in Render dashboard
+      # Security
+      - key: JWT_SECRET
+        generateValue: true # Render will auto-generate this
+      # Blockchain
+      - key: RPC_URL
+        value: https://rpc.sepolia-api.lisk.com # Change to mainnet when ready
+      - key: ADMIN_PRIVATE_KEY
+        sync: false # Set this manually - NEVER commit private keys!
+      # Smart Contracts - Add after deployment
+      - key: ADDRESS_MANAGER_CONTRACT
+        sync: false
+      # Email Service - SendGrid/Brevo
+      - key: EMAIL_SERVICE_PROVIDER
+        value: sendgrid
+      - key: EMAIL_SERVICE_API_KEY
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: Saiv Platform
+      - key: EMAIL_REPLY_TO
+        sync: false
+      # Optional: Webhook config
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      # Optional: Firebase for push notifications
+      - key: PUSH_SERVICE_PROVIDER
+        value: firebase
+      - key: FIREBASE_SERVER_KEY
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false

@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { ArrowLeftRight, WalletMinimal, PiggyBank, Target, Plus } from 'lucide-react';
 import { QuickActions } from '@/components/wallet/quick-actions';
 import { TransactionHistory } from '@/components/wallet/transaction-history';
+import { DepositToMainWallet } from '@/components/wallet/deposit-to-main-wallet';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -181,6 +182,16 @@ export default function WalletPage(): ReactElement {
         onWithdraw={() => scrollToSection('withdraw-section')}
       />
 
+      {/* Deposit to Main Wallet */}
+      <DepositToMainWallet
+        mainWalletAddress={walletBalance?.mainWallet?.address ?? ''}
+        supportedTokens={supportedTokens?.map(t => ({
+          symbol: t.symbol,
+          name: t.name ?? t.symbol,
+          address: t.address
+        }))}
+      />
+
       <section className="grid gap-5 lg:grid-cols-3">
         <Card className="border-white/10">
           <CardHeader>
@@ -188,11 +199,31 @@ export default function WalletPage(): ReactElement {
             <CardDescription>Gasless account for everyday transfers.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isWalletLoading ? <Skeleton className="h-8 w-32" /> : <p className="text-3xl font-semibold text-slate-50">${mainBalanceFormatted} USDC</p>}
+            {isWalletLoading ? (
+              <Skeleton className="h-8 w-32" />
+            ) : (
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Total Value (USD Equiv.)</p>
+                <p className="text-3xl font-semibold text-slate-50">${mainBalanceFormatted}</p>
+              </div>
+            )}
             <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3 text-xs text-slate-400">
               <p className="uppercase tracking-wide text-slate-500">Address</p>
-              <p className="font-mono text-sm text-cyan-200">{truncateAddress(walletBalance?.mainWallet?.address)}</p>
+              <p className="font-mono text-sm text-cyan-200 break-all">{walletBalance?.mainWallet?.address || '-'}</p>
             </div>
+            {walletBalance?.mainWallet?.stablecoins && walletBalance.mainWallet.stablecoins.length > 0 && (
+              <div className="space-y-2 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3">
+                <p className="text-xs uppercase tracking-wide text-cyan-300 font-medium">Token Balances</p>
+                <div className="space-y-2">
+                  {walletBalance.mainWallet.stablecoins.map((coin) => (
+                    <div key={coin.address} className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-300">{coin.symbol}</span>
+                      <span className="text-sm font-semibold text-cyan-200">{Number(coin.formatted).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <Badge variant="success" className="w-max">Managed by Saiv</Badge>
           </CardContent>
         </Card>
@@ -203,12 +234,32 @@ export default function WalletPage(): ReactElement {
             <CardDescription>Automated wallet for long-term goals.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {isWalletLoading ? <Skeleton className="h-8 w-32" /> : <p className="text-3xl font-semibold text-slate-50">${savingsBalanceFormatted} USDC</p>}
+            {isWalletLoading ? (
+              <Skeleton className="h-8 w-32" />
+            ) : (
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Total Value (USD Equiv.)</p>
+                <p className="text-3xl font-semibold text-slate-50">${savingsBalanceFormatted}</p>
+              </div>
+            )}
             <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3 text-xs text-slate-400">
               <p className="uppercase tracking-wide text-slate-500">Address</p>
-              <p className="font-mono text-sm text-cyan-200">{truncateAddress(walletBalance?.savingsWallet?.address)}</p>
+              <p className="font-mono text-sm text-cyan-200 break-all">{walletBalance?.savingsWallet?.address || '-'}</p>
             </div>
-            <Badge variant="outline" className="w-max">Boosted yield compatible</Badge>
+            {walletBalance?.savingsWallet?.stablecoins && walletBalance.savingsWallet.stablecoins.length > 0 && (
+              <div className="space-y-2 rounded-xl border border-green-500/20 bg-green-500/5 p-3">
+                <p className="text-xs uppercase tracking-wide text-green-300 font-medium">Token Balances</p>
+                <div className="space-y-2">
+                  {walletBalance.savingsWallet.stablecoins.map((coin) => (
+                    <div key={coin.address} className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-300">{coin.symbol}</span>
+                      <span className="text-sm font-semibold text-green-200">{Number(coin.formatted).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Badge variant="outline" className="w-max">Aave Yield Enabled 🚀</Badge>
           </CardContent>
         </Card>
 
@@ -328,11 +379,33 @@ export default function WalletPage(): ReactElement {
           </CardHeader>
           <CardContent className="space-y-6">
             <form className="grid gap-4" onSubmit={transferForm.handleSubmit(handleTransfer)}>
-              <Label htmlFor="transfer-amount">Amount (ETH)</Label>
-              <Input id="transfer-amount" placeholder="0.25" type="number" step="0.0001" {...transferForm.register('amount', { required: true })} />
+              <div>
+                <Label htmlFor="transfer-token">Select Token</Label>
+                <select
+                  id="transfer-token"
+                  className="w-full mt-1 rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm text-slate-200 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  {...transferForm.register('tokenAddress')}
+                >
+                  <option value="">ETH (Native)</option>
+                  {supportedTokens?.map((token) => (
+                    <option key={token.address} value={token.address}>
+                      {token.symbol} - {token.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">Choose which token to transfer to savings</p>
+              </div>
 
-              <Label htmlFor="tokenAddress">Token contract (optional)</Label>
-              <Input id="tokenAddress" placeholder="0x... (leave empty for ETH)" {...transferForm.register('tokenAddress')} />
+              <div>
+                <Label htmlFor="transfer-amount">Amount</Label>
+                <Input
+                  id="transfer-amount"
+                  placeholder="0.25"
+                  type="number"
+                  step="0.0001"
+                  {...transferForm.register('amount', { required: true })}
+                />
+              </div>
 
               <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
                 <div className="flex items-center gap-2 text-blue-300 text-sm font-medium mb-2">
@@ -343,7 +416,7 @@ export default function WalletPage(): ReactElement {
                   From: <span className="font-medium">Main Wallet</span> → To: <span className="font-medium">Savings Wallet</span>
                 </p>
                 <p className="text-xs text-blue-300 mt-1">
-                  Savings wallet automatically earns yield on deposited funds
+                  💰 Savings wallet earns yield through Aave automatically
                 </p>
               </div>
 

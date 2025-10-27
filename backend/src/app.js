@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const connectDB = require('./config/database');
 const contractService = require('./services/contractService');
 const gaslessService = require('./services/gaslessService');
+const tokenService = require('./services/tokenService');
 const aaveService = require('./services/aaveService');
 const webhookService = require('./services/webhookService');
 const notificationService = require('./services/notificationService');
@@ -43,6 +44,28 @@ connectDB();
     }
   } catch (err) {
     console.error('Gasless service initialization error:', err.message);
+  }
+})();
+
+// Initialize token service for stablecoin management
+(async () => {
+  try {
+    if (tokenService && typeof tokenService.initialize === 'function') {
+      const success = await tokenService.initialize();
+      if (success) {
+        const stablecoins = tokenService.getSupportedStablecoins();
+        const count = Object.keys(stablecoins).length;
+        console.log('✅ TOKEN SERVICE ENABLED - Stablecoin support configured');
+        console.log(`   - Supported Stablecoins: ${count} tokens`);
+        if (count > 0) {
+          console.log(`   - Tokens: ${Object.keys(stablecoins).join(', ')}`);
+        }
+      } else {
+        console.warn('⚠️ Token service initialization failed');
+      }
+    }
+  } catch (err) {
+    console.error('Token service initialization error:', err.message);
   }
 })();
 

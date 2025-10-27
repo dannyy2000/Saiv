@@ -46,12 +46,32 @@ module.exports = {
       url: "https://polygon-rpc.com",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 137,
+    },
+
+    // Optimism Sepolia Testnet (RECOMMENDED)
+    optimismSepolia: {
+      url: "https://sepolia.optimism.io",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 11155420,
+      gasPrice: 1000000, // Very cheap gas
+    },
+
+    // Optimism Mainnet
+    optimism: {
+      url: "https://mainnet.optimism.io",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 10,
     }
+  },
+  sourcify: {
+    enabled: true
   },
   etherscan: {
     apiKey: {
       liskSepolia: "123", // Placeholder - Lisk uses Blockscout
-      lisk: "123"
+      lisk: "123",
+      optimismSepolia: process.env.OPTIMISM_ETHERSCAN_API_KEY || "YOUR_OPTIMISM_ETHERSCAN_API_KEY",
+      optimism: process.env.OPTIMISM_ETHERSCAN_API_KEY || "YOUR_OPTIMISM_ETHERSCAN_API_KEY"
     },
     customChains: [
       {
@@ -68,6 +88,22 @@ module.exports = {
         urls: {
           apiURL: "https://blockscout.lisk.com/api",
           browserURL: "https://blockscout.lisk.com"
+        }
+      },
+      {
+        network: "optimismSepolia",
+        chainId: 11155420,
+        urls: {
+          apiURL: "https://api-sepolia-optimistic.etherscan.io/api",
+          browserURL: "https://sepolia-optimism.etherscan.io"
+        }
+      },
+      {
+        network: "optimism",
+        chainId: 10,
+        urls: {
+          apiURL: "https://api-optimistic.etherscan.io/api",
+          browserURL: "https://optimistic.etherscan.io"
         }
       }
     ]

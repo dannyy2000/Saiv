@@ -41,6 +41,14 @@ class GaslessService {
 
   async loadContract(contractAddress) {
     try {
+      // Validate address format to prevent ENS resolution attempts
+      if (!contractAddress || !contractAddress.startsWith('0x') || contractAddress.length !== 42) {
+        throw new Error(`Invalid contract address format: ${contractAddress}. Must be a 42-character hex address starting with 0x`);
+      }
+
+      // Ensure we're using the checksummed address to avoid ENS lookups
+      const checksummedAddress = ethers.getAddress(contractAddress);
+
       const addressManagerABI = [
         "function createUserWallets(address userIdentifier) external returns (address mainWallet, address savingsWallet)",
         "function createEmailUserWallets(bytes32 emailHash, address userIdentifier) external returns (address mainWallet, address savingsWallet)",
@@ -58,12 +66,12 @@ class GaslessService {
       ];
 
       this.addressManagerContract = new ethers.Contract(
-        contractAddress,
+        checksummedAddress,
         addressManagerABI,
         this.backendWallet
       );
 
-      console.log(`Address Manager contract loaded at: ${contractAddress}`);
+      console.log(`Address Manager contract loaded at: ${checksummedAddress}`);
       return true;
     } catch (error) {
       console.error('Error loading contract:', error);

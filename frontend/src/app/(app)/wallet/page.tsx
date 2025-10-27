@@ -187,7 +187,7 @@ export default function WalletPage(): ReactElement {
         mainWalletAddress={walletBalance?.mainWallet?.address ?? ''}
         supportedTokens={supportedTokens?.map(t => ({
           symbol: t.symbol,
-          name: t.name,
+          name: t.name ?? t.symbol,
           address: t.address
         }))}
       />

@@ -55,7 +55,7 @@ export function DepositToMainWallet({ mainWalletAddress, supportedTokens = [] }:
           <div>
             <CardTitle className="flex items-center gap-2">
               <span className="text-cyan-400">Deposit to Main Wallet</span>
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="success" className="text-xs">
                 Gasless
               </Badge>
             </CardTitle>

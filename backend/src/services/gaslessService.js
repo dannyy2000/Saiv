@@ -1,4 +1,5 @@
 const { ethers } = require('ethers');
+const tokenService = require('./tokenService');
 
 class GaslessService {
   constructor() {
@@ -97,12 +98,28 @@ class GaslessService {
 
       if (event) {
         const parsed = this.addressManagerContract.interface.parseLog(event);
-        return {
+        const result = {
           mainWallet: parsed.args.mainWallet,
           savingsWallet: parsed.args.savingsWallet,
           transactionHash: tx.hash,
           blockNumber: receipt.blockNumber
         };
+
+        // Add supported stablecoins to both wallets
+        if (tokenService.isReady()) {
+          try {
+            console.log('💰 Adding stablecoins to main wallet...');
+            await tokenService.addStablecoinsToWallet(result.mainWallet, this.addressManagerContract);
+
+            console.log('💰 Adding stablecoins to savings wallet...');
+            await tokenService.addStablecoinsToWallet(result.savingsWallet, this.addressManagerContract);
+          } catch (error) {
+            console.error('⚠️ Error adding stablecoins (non-critical):', error.message);
+            // Continue even if stablecoin addition fails
+          }
+        }
+
+        return result;
       }
 
       return null;
@@ -144,13 +161,29 @@ class GaslessService {
 
       if (event) {
         const parsed = this.addressManagerContract.interface.parseLog(event);
-        return {
+        const result = {
           mainWallet: parsed.args.mainWallet,
           savingsWallet: parsed.args.savingsWallet,
           emailHash: emailHash,
           transactionHash: tx.hash,
           blockNumber: receipt.blockNumber
         };
+
+        // Add supported stablecoins to both wallets
+        if (tokenService.isReady()) {
+          try {
+            console.log('💰 Adding stablecoins to main wallet...');
+            await tokenService.addStablecoinsToWallet(result.mainWallet, this.addressManagerContract);
+
+            console.log('💰 Adding stablecoins to savings wallet...');
+            await tokenService.addStablecoinsToWallet(result.savingsWallet, this.addressManagerContract);
+          } catch (error) {
+            console.error('⚠️ Error adding stablecoins (non-critical):', error.message);
+            // Continue even if stablecoin addition fails
+          }
+        }
+
+        return result;
       }
 
       return null;

@@ -69,6 +69,14 @@ async function main() {
     console.log(`AddressManager: https://polygonscan.com/address/${deployedContracts.addressManager}`);
     console.log(`UserWallet: https://polygonscan.com/address/${deployedContracts.userWalletImpl}`);
     console.log(`GroupPool: https://polygonscan.com/address/${deployedContracts.groupPoolImpl}`);
+  } else if (hre.network.name === "optimismSepolia") {
+    console.log(`AddressManager: https://sepolia-optimism.etherscan.io/address/${deployedContracts.addressManager}`);
+    console.log(`UserWallet: https://sepolia-optimism.etherscan.io/address/${deployedContracts.userWalletImpl}`);
+    console.log(`GroupPool: https://sepolia-optimism.etherscan.io/address/${deployedContracts.groupPoolImpl}`);
+  } else if (hre.network.name === "optimism") {
+    console.log(`AddressManager: https://optimistic.etherscan.io/address/${deployedContracts.addressManager}`);
+    console.log(`UserWallet: https://optimistic.etherscan.io/address/${deployedContracts.userWalletImpl}`);
+    console.log(`GroupPool: https://optimistic.etherscan.io/address/${deployedContracts.groupPoolImpl}`);
   }
 
   console.log("\n📝 Next Steps:");

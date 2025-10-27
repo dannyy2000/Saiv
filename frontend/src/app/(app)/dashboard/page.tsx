@@ -249,25 +249,25 @@ export default function DashboardPage(): ReactElement {
                     {user?.registrationType?.toUpperCase() || 'EMAIL'}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Main Wallet</span>
+                <div className="flex justify-between text-sm gap-3">
+                  <span className="text-slate-400 flex-shrink-0">Main Wallet</span>
                   <span className="text-right">
                     <span className="block font-semibold text-slate-200">
                       {mainBalance} {TOKEN_SYMBOL}
                     </span>
-                    <span className="block font-mono text-xs text-slate-400">
-                      {truncateAddress(walletBalance?.mainWallet?.address)}
+                    <span className="block font-mono text-xs text-slate-400 break-all">
+                      {walletBalance?.mainWallet?.address || '-'}
                     </span>
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Savings Wallet</span>
+                <div className="flex justify-between text-sm gap-3">
+                  <span className="text-slate-400 flex-shrink-0">Savings Wallet</span>
                   <span className="text-right">
                     <span className="block font-semibold text-slate-200">
                       {savingsBalance} {TOKEN_SYMBOL}
                     </span>
-                    <span className="block font-mono text-xs text-slate-400">
-                      {truncateAddress(walletBalance?.savingsWallet?.address)}
+                    <span className="block font-mono text-xs text-slate-400 break-all">
+                      {walletBalance?.savingsWallet?.address || '-'}
                     </span>
                   </span>
                 </div>

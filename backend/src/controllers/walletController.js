@@ -1,6 +1,7 @@
 const { ethers } = require('ethers');
 const contractService = require('../services/contractService');
 const currencyService = require('../services/currencyService');
+const tokenService = require('../services/tokenService');
 const User = require('../models/User');
 
 const walletController = {
@@ -22,17 +23,32 @@ const walletController = {
       // Get ETH balance from savings wallet
       const savingsEthBalance = await contractService.getWalletBalance(user.savingsAddress);
 
+      // Get stablecoin balances if token service is ready
+      let mainStablecoins = [];
+      let savingsStablecoins = [];
+
+      if (tokenService.isReady()) {
+        try {
+          mainStablecoins = await tokenService.getAllStablecoinBalances(user.address);
+          savingsStablecoins = await tokenService.getAllStablecoinBalances(user.savingsAddress);
+        } catch (error) {
+          console.warn('Could not fetch stablecoin balances:', error.message);
+        }
+      }
+
       // Basic wallet data
       const walletData = {
         mainWallet: {
           address: user.address,
           balance: ethBalance.ether,
-          ethBalance: ethBalance
+          ethBalance: ethBalance,
+          stablecoins: mainStablecoins
         },
         savingsWallet: {
           address: user.savingsAddress,
           balance: savingsEthBalance.ether,
-          ethBalance: savingsEthBalance
+          ethBalance: savingsEthBalance,
+          stablecoins: savingsStablecoins
         },
         databaseBalance: user.balance
       };
@@ -395,18 +411,26 @@ const walletController = {
 
       const walletAddress = walletType === 'savings' ? user.savingsAddress : user.address;
 
-      // Get supported tokens from wallet contract
-      const result = await contractService.callWalletFunction(
-        walletAddress,
-        'getSupportedTokens'
-      );
+      // Get supported stablecoins configuration
+      const stablecoinsConfig = tokenService.isReady()
+        ? tokenService.getSupportedStablecoins()
+        : {};
+
+      // Build tokens array with metadata
+      const tokens = Object.entries(stablecoinsConfig).map(([key, token]) => ({
+        address: token.address,
+        symbol: token.symbol,
+        name: token.name,
+        decimals: token.decimals,
+        aaveSupported: token.aaveSupported || false
+      }));
 
       res.status(200).json({
         success: true,
         data: {
           walletAddress: walletAddress,
           walletType: walletType,
-          supportedTokens: result.result
+          tokens: tokens
         }
       });
 

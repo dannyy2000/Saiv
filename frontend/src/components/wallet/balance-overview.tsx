@@ -154,11 +154,11 @@ export function BalanceOverview({ className }: BalanceOverviewProps): ReactEleme
                     <p className="text-xs uppercase tracking-wide text-slate-500 mb-1">
                       Wallet Address
                     </p>
-                    <div className="flex items-center justify-between">
-                      <p className="font-mono text-sm text-cyan-200">
-                        {wallet.address ? truncateAddress(wallet.address) : '••••••••'}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-mono text-sm text-cyan-200 break-all flex-1">
+                        {wallet.address || '••••••••'}
                       </p>
-                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs flex-shrink-0">
                         Copy
                       </Button>
                     </div>
